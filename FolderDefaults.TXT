@@ -1,0 +1,18 @@
+;SERVER_NAME       	LOGS	ROOT 	BACKUPS   	MACHINE_CLASS	MACHINE_TYPE	OPERATING_SYSTEM	DESCRIPTION
+;-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ MYDC1           	D:  	C$   	-         	Server:     	Physical:   	Windows 2019 x64      	PROD: Domain Controller #1                               
+ MYDC2           	D:  	C$   	-         	Server:     	Virtual:    	Windows 2022 x64      	PROD: Domain Controller #2                               
+ EXCHANGE1       	D:  	C$   	-         	Server:     	Physical:   	Windows 2016 x64      	PROD: Exchange Server #1                                 
+ EXCHANGE2       	D:  	C$   	-         	Server:     	Virtual:    	Windows 2019 x64      	PROD: Exchange Server #2                                 
+ DBSVR01         	E:  	C$   	-         	Server:     	Physical:   	Windows 2016 x64      	PROD: Database Server #1                                 
+ DBSVR02         	E:  	C$   	-         	Server:     	Physical:   	Windows 2019 x64      	PROD: Database Server #2                                 
+ FILESVR1        	D:  	C$   	-         	Server:     	Virtual:    	Windows 2019 x64      	PROD: File Server                                        
+ FILESVR2        	D:  	C$   	-         	Server:     	Virtual:    	Windows 2019 x64      	PROD: File Server                                        
+ DEVCENTER       	D:  	C$   	-         	Server:     	Virtual:    	Windows 2022 x64      	DEV: Development Server                                 
+ MGMTSERVER      	D:  	C$   	-         	Server:     	Physical:   	Ubuntu 20.10 x64      	PROD: Network Management Server                          
+ SERVER1         	E:  	C$   	-         	Server:     	Virtual:    	Windows 2019 x64      	CORPORATE: Intranet Server                                    
+ SERVER2         	D:  	C$   	-         	Server:     	Virtual:    	Windows 2016 x64      	CORPORATE: Web Application Server                             
+ SERVER3         	D:  	C$   	-         	Server:     	Virtual:    	Windows 2019 x64      	CORPORATE: Unifed Communications Server                       
+ SERVER4         	D:  	C$   	-         	Server:     	Virtual:    	Windows 2022 x64      	CORPORATE: Marketing Server                                   
+ SERVER5         	E:  	C$   	D:        	Server:     	Virtual:    	Windows 2019 x64      	CORPORATE: HR / Finance Server                                
+;BIGSAN          	-   	-    	-         	Storage:    	Appliance:  	Synology DSM 7.0      	PROD: 80TB iSCSI SAN                                     

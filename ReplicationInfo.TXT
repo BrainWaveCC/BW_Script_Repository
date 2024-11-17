@@ -1,0 +1,138 @@
+;Name of Copy Job;     Variable Name;         Default Value of Variable (Delimiter = ;)
+-----------------------------------------------------------------------------------------
+&;                     @SOURCEDEST;     
+&;                     @EXCLUDE;              -x *\.git *Zips\* *ZipFiles\* *.ZIP *\zia* *.RAR *.LOG *.LOG_* *.LOG.* *.TMP *(Old*
+&;                     @SAN-ARCHIVE1;         %@REMOTE_ARCHIVE1%\[Custom Archives]\%COMPUTERNAME%
+&;                     @SAN-ARCHIVE2;         %@REMOTE_ARCHIVE2%\[Custom Archives]\%COMPUTERNAME%
+&;                     @SAN-ARCHIVE;          %@SAN-ARCHIVE1%
+&;                     @MULTIDEST;            FALSE
+-----------------------------------------------------------------------------------------
+TestCopy;              #REPLICATEFILES;     
+TestCopy;              @INFO;                 Generic File Copy (TESTING)
+TestCopy;              @SKIPFILE;     
+TestCopy;              @SKIPDIR;     
+
+TestCopy;              @SOURCE1a;             %SystemDrive%\Scripts\Bat\Input
+TestCopy;              @SOURCE1b;             D:\Scripts\Bat\Input
+TestCopy;              @DEST1;                %SystemDrive%\Temp\Junk99\Scripts\Bat\Input
+
+TestCopy;              @OPTIONS;              /MIR /COPYALL /SECFIX
+TestCopy;              @SHOWTREE;             FALSE
+TestCopy;              @JOBFREQ;              DAILY
+TestCopy;              @JOBTIME;              05:30:00
+TestCopy;              @NOSCHED;     
+-----------------------------------------------------------------------------------------
+TestCopy2;             #REPLICATEFILES;     
+TestCopy2;             @INFO;                 Persistent Replication (TESTING)
+TestCopy2;             @SKIPFILE;             Zip
+TestCopy2;             @SKIPDIR;              Zips
+
+TestCopy2;             @SOURCE1a;             %SystemDrive%\Scripts\Bat\Input
+TestCopy2;             @SOURCE1b;             D:\Scripts\Bat\Input
+TestCopy2;             @DEST1;                %SystemDrive%\Temp\Junk99\Scripts\Bat\Input
+
+TestCopy2;             @OPTIONS;              /MON:1 /MIR /COPYALL /SECFIX
+TestCopy2;             @SHOWTREE;             FULL
+TestCopy2;             @JOBFREQ;              MINUTE /MO 5
+TestCopy2;             @JOBTIME;              00:00:00
+TestCopy2;             @NOSCHED;              TRUE
+-----------------------------------------------------------------------------------------
+MyDocs;                #REPLICATEFILES;     
+MyDocs;                @INFO;                 My Personal Documents
+MyDocs;                @SKIPFILE;     
+MyDocs;                @SKIPDIR;              Zips
+
+MyDocs;                @SOURCE1;              %USERPROFILE%\Documents
+MyDocs;                @DEST1;                E:\My Documents
+
+MyDocs;                @SOURCE2;              %USERPROFILE%\My Documents
+MyDocs;                @DEST2;                E:\My Documents
+
+MyDocs;                @OPTIONS;              /MIR /COPYALL /SECFIX
+MyDocs;                @SHOWTREE;             FALSE
+MyDocs;                @JOBFREQ;              DAILY
+MyDocs;                @JOBTIME;              05:30:00
+MyDocs;                @NOSCHED;              TRUE
+MyDocs;                @NOSCHED;     
+-----------------------------------------------------------------------------------------
+SystemState;           #REPLICATEFILES;     
+SystemState;           @INFO;                 SystemState Backups
+SystemState;           @EXCLUDE;              -x *\*_Users* *\*_Windows* *\.git *Zips\* *ZipFiles\* *\zia* *.RAR *.LOG *.LOG_* *.LOG.* *.TMP *(Old*
+SystemState;           @SKIPFILE;     
+SystemState;           @SKIPDIR;              Zips
+SystemState;           @MULTIDEST;            TRUE
+
+SystemState;           @SOURCE1;              %@BACKUPS%\SystemState\SystemState.%COMPUTERNAME%
+SystemState;           @DEST1a;               %@SAN-ARCHIVE1%\SystemState
+SystemState;           @DEST1b;               %@SAN-ARCHIVE2%\SystemState
+SystemState;           @MASK1;                *.ZIP
+SystemState;           @RECURSION1;           " "
+
+SystemState;           @SHOWTREE;             FALSE
+SystemState;           @OPTIONS;              
+SystemState;           @JOBFREQ;              DAILY
+SystemState;           @JOBTIME;              23:30:00
+SystemState;           @NOSCHED;              FALSE
+-----------------------------------------------------------------------------------------
+UrBackup-Config;       #REPLICATEFILES;     
+UrBackup-Config;       @INFO;                 UrBackup Config Files
+UrBackup-Config;       @EXCLUDE;              -x *Zips\* *ZipFiles\* *.ZIP *.7z *\zia* *.RAR *.LOG *.LOG_* *.LOG.* *.TMP *.EXE *.DLL *.BAT *.ICO *.PNG *.db* *.dat
+UrBackup-Config;       @SKIPFILE;             *.EXE *.DLL *.BAT *.PNG *.LOG *.ICO *.db* *.dat
+UrBackup-Config;       @SKIPDIR;              Zips ZipFiles Lang Tokens Windows_Components
+
+UrBackup-Config;       @SOURCE1a;             %PROGRAMFILES%\UrBackup
+UrBackup-Config;       @SOURCE1b;             %PROGRAMFILES(x86)%\UrBackup
+UrBackup-Config;       @DEST1;                %SystemDrive%\Storage\Docs\UrBackup\%COMPUTERNAME%\Client
+UrBackup-Config;       @MASK1;                *.TXT *.CFG *.XML *.JSON *.PUB
+UrBackup-Config;       @EXCLUDE1;             %@EXCLUDE% *Lang\* *Tokens\* *Windows_Components\* 
+
+UrBackup-Config;       @SOURCE2a;             %PROGRAMFILES%\UrBackupServer
+UrBackup-Config;       @SOURCE2b;             %PROGRAMFILES(x86)%\UrBackupServer
+UrBackup-Config;       @DEST2;                %SystemDrive%\Storage\Docs\UrBackup\%COMPUTERNAME%\Server
+UrBackup-Config;       @MASK2;                %@MASK1% *.KEY *.PRIV
+UrBackup-Config;       @EXCLUDE2;             %@EXCLUDE% *IMDisk\* *FileIndex\* *www\*
+
+UrBackup-Config;       @SHOWTREE;             FALSE
+UrBackup-Config;       @OPTIONS;              /MIR /COPYALL /SECFIX
+UrBackup-Config;       @JOBFREQ;              DAILY
+UrBackup-Config;       @JOBTIME;              03:25:00
+UrBackup-Config;       @NOSCHED;              FALSE
+-----------------------------------------------------------------------------------------
+Remote-Archives;       #REPLICATEFILES;     
+Remote-Archives;       @INFO;                 Archive All Backups
+Remote-Archives;       @SKIPFILE;     
+Remote-Archives;       @SKIPDIR;     
+Remote-Archives;       @MULTIDEST;            FALSE
+
+
+Remote-Archives;       @THEFOLDER;            Configs
+Remote-Archives;       @SOURCE4;              %@BACKUPS%\%@THEFOLDER%
+Remote-Archives;       @DEST4a;               %@LOCAL_ARCHIVE1%\%@THEFOLDER%
+Remote-Archives;       @DEST4b;               %@LOCAL_ARCHIVE2%\%@THEFOLDER%
+
+Remote-Archives;       @THEFOLDER;            Development
+Remote-Archives;       @SOURCE6;              %@BACKUPS%\%@THEFOLDER%
+Remote-Archives;       @DEST6a;               %@LOCAL_ARCHIVE1%\%@THEFOLDER%
+Remote-Archives;       @DEST6b;               %@LOCAL_ARCHIVE2%\%@THEFOLDER%
+
+Remote-Archives;       @THEFOLDER;            Knowledgebase
+Remote-Archives;       @SOURCE7;              %@BACKUPS%\%@THEFOLDER%
+Remote-Archives;       @DEST7a;               %@LOCAL_ARCHIVE1%\%@THEFOLDER%
+Remote-Archives;       @DEST7b;               %@LOCAL_ARCHIVE2%\%@THEFOLDER%
+
+Remote-Archives;       @THEFOLDER;            Scripts
+Remote-Archives;       @SOURCE9;              %@BACKUPS%\%@THEFOLDER%
+Remote-Archives;       @DEST9a;               %@LOCAL_ARCHIVE1%\%@THEFOLDER%
+Remote-Archives;       @DEST9b;               %@LOCAL_ARCHIVE2%\%@THEFOLDER%
+
+Remote-Archives;       @THEFOLDER;            Audit
+Remote-Archives;       @SOURCE;               %@BACKUPS%\%@THEFOLDER%
+Remote-Archives;       @DESTa;                %@LOCAL_ARCHIVE1%\%@THEFOLDER%
+Remote-Archives;       @DESTb;                %@LOCAL_ARCHIVE2%\%@THEFOLDER%
+
+Remote-Archives;       @SHOWTREE;             FALSE
+Remote-Archives;       @OPTIONS;              /MIR /COPYALL /SECFIX
+Remote-Archives;       @JOBFREQ;              DAILY
+Remote-Archives;       @JOBTIME;              03:30:00
+Remote-Archives;       @NOSCHED;              FALSE
+-----------------------------------------------------------------------------------------

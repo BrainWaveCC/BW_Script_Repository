@@ -1,0 +1,547 @@
+;Name of Archive Job;  Variable Name;         Default Value of Variable (Delimiter = ;)
+-----------------------------------------------------------------------------------------
+&;                     @SOURCEDEST;     
+&;                     @EXCLUDE;              -x *\.git *Zips\* *ZipFiles\* *.ZIP *\zia* *.RAR *.LOG *.LOG_* *.LOG.* *.TMP *(Old*
+&;                     @USE_ROBOCOPY;         TRUE
+&;                     @SORT_LIST;            TRUE
+&;                     @THISHASH;             XXHASH64
+&;                     @FALLBACK_HASH;        MD5
+&;                     @HIDE_BASE_PATH;       TRUE
+&;                     @HIDE_FULL_PATH;       FALSE
+&;                     @NOSCHED;              FALSE
+&;                     @JOBDELAY;     
+&;                     @UPDATESCHED;          FALSE
+&;                     @SIMPLEDEST;           FALSE
+&;                     @DESTFORMAT;           {INFO}\{HOST}
+&;                     @DIAGMODE;             FALSE
+&;                     @MAIL;                 FALSE
+&;                     @SILENT-ON-ZERO;       FALSE
+&;                     @RCPT-TO;              -to %@OPS-ADMIN%
+&;                     @ALERT-TO;             -to %@ALERTCONSOLE%
+&;                     @TESTMODE;             FALSE
+&;                     @T_MIN_LOG_ROWS;       2
+&;                     @T_MAX_LOG_ROWS;       29
+-----------------------------------------------------------------------------------------
+SystemState;           #CREATEARCHIVES;     
+SystemState;           @INFO;                 System State - NTUSER and Registry
+SystemState;           @THISHASH;             NOHASH
+SystemState;           @SKIPFILE;             
+SystemState;           @SKIPDIR;              }.TM AppData Dropbox OneDrive Box GoogleDrive
+SystemState;           @EXEMPTION;            "*}.TM*" "*AppData*" "*Application Data*"
+
+SystemState;           @SOURCE1a;             %SystemDrive%\Users
+SystemState;           @SOURCE1b;             %SystemDrive%\Documents and Settings
+SystemState;           @SOURCE1c;             %SystemDrive%\Temp\MyRegistry
+SystemState;           @DEST1;                %@BACKUPS%\SystemState
+SystemState;           @FILESPEC1;            NTUSER*.*
+SystemState;           @EXEMPTION1;           "*}.TM*" "*\AppData\*" "*Application Data*" "*\Dropbox\*" "*\OneDrive\*" "*\Box\*" "*\Google\Drive\*"
+
+SystemState;           @SOURCE2a;             %WinDir%\System32\Config
+SystemState;           @SOURCE2b;             %SystemDrive%\Temp\MyRegistry\Config
+SystemState;           @DEST2;                %@DEST1%
+SystemState;           @FILESPEC2;            DEFAULT ELAM COMPONENTS DRIVERS SAM SECURITY SOFTWARE SYSTEM
+SystemState;           @EXEMPTION2;           "*RegBack*" "*SystemProfile*" 
+
+SystemState;           @USE_7z;               
+SystemState;           @USE_VSS;              TRUE
+SystemState;           @SHOWTREE;             TRUE
+SystemState;           @JOBFREQ;              DAILY
+SystemState;           @JOBTIME;              02:15:00
+SystemState;           @JOBDATE;     
+SystemState;           @UPDATESCHED;          TRUE
+SystemState;           @MAKE_DAILY;           TRUE
+SystemState;           @KEEP_DAILY;           5
+SystemState;           @MAKE_MONTHLY;         TRUE
+SystemState;           @KEEP_MONTHLY;         2
+-----------------------------------------------------------------------------------------
+ScriptRepository;      #CREATEARCHIVES;     
+ScriptRepository;      @INFO;                 BrainWave Script Repository
+ScriptRepository;      @SKIPFILE;             *.ZIP *.7z *.RAR
+ScriptRepository;      @SKIPDIR;              Zips ZipFiles
+ScriptRepository;      @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+.ZIP" "+.7z" "+.RAR"
+
+ScriptRepository;      @SOURCE;               %SystemDrive%\Scripts
+ScriptRepository;      @DEST;                 %@BACKUPS%\Scripts\
+
+ScriptRepository;      @SOURCE1a;             D:\Scripts
+ScriptRepository;      @SOURCE1b;             E:\Scripts
+ScriptRepository;      @DEST1;                %@DEST%
+
+ScriptRepository;      @SOURCE2a;             %@SCRIPTS_SOURCE1%
+ScriptRepository;      @SOURCE2b;             %@SCRIPTS_SOURCE2%
+ScriptRepository;      @SOURCE2c;             %@SCRIPTS_SOURCE3%
+ScriptRepository;      @SOURCE2d;             %@SCRIPTS_SOURCE4%
+ScriptRepository;      @SOURCE2e;             %@SCRIPTS_SOURCE0%
+ScriptRepository;      @DEST2;                %@DEST%
+
+ScriptRepository;      @OPTIONS;              /MIR /COPYALL /SECFIX
+ScriptRepository;      @SHOWTREE;             TRUE
+ScriptRepository;      @JOBFREQ;              DAILY
+ScriptRepository;      @JOBTIME;              21:30:00
+ScriptRepository;      @UPDATESCHED;          TRUE
+ScriptRepository;      @MAKE_FILES;           FALSE
+ScriptRepository;      @KEEP_FILES;           1
+ScriptRepository;      @MAKE_TIMED;           TRUE
+ScriptRepository;      @KEEP_TIMED;           10
+ScriptRepository;      @MAKE_MONTHLY;         TRUE
+ScriptRepository;      @KEEP_MONTHLY;         4
+ScriptRepository;      @MAKE_YEARLY;          TRUE
+ScriptRepository;      @KEEP_YEARLY;          2
+-----------------------------------------------------------------------------------------
+CorporateDocs;         #CREATEARCHIVES;     
+CorporateDocs;         @INFO;                 Corporate Documentation
+CorporateDocs;         @SKIPFILE;             *.ZIP *.7z *.RAR  *.MSI *.EXE *.MP* *.VLC
+CorporateDocs;         @SKIPDIR;              Zips ZipFiles
+CorporateDocs;         @EXEMPTION;            "+Zips\+" "+ZipFiles\+" "+.ZIP" "+.7z" "+.RAR" "+.MSI" "+.EXE" "+.MP+" "+.VLC"
+
+CorporateDocs;         @SOURCE1;              D:\Corporate\Documents
+CorporateDocs;         @DEST1;                %@BACKUPS%
+
+CorporateDocs;         @SOURCE2;              E:\Department\Documents
+CorporateDocs;         @DEST2;                %@BACKUPS%
+
+CorporateDocs;         @OPTIONS;              /MIR /COPYALL /SECFIX
+CorporateDocs;         @SHOWTREE;             TRUE
+CorporateDocs;         @JOBFREQ;              DAILY
+CorporateDocs;         @JOBTIME;              19:00:00
+CorporateDocs;         @UPDATESCHED;          TRUE
+CorporateDocs;         @MAKE_FILES;           FALSE
+CorporateDocs;         @KEEP_FILES;           0
+CorporateDocs;         @MAKE_TIMED;           TRUE
+CorporateDocs;         @KEEP_TIMED;           20
+CorporateDocs;         @MAKE_MONTHLY;         TRUE
+CorporateDocs;         @KEEP_MONTHLY;         6
+CorporateDocs;         @MAKE_YEARLY;          TRUE
+CorporateDocs;         @KEEP_YEARLY;          2
+-----------------------------------------------------------------------------------------
+VM-Config;             #CREATEARCHIVES;     
+VM-Config;             @INFO;                 VM Server Configuration
+VM-Config;             @THISHASH;             NOHASH
+VM-Config;             @SKIPFILE;             *.ZIP *.7z *.RAR
+VM-Config;             @SKIPDIR;              Zips ZipFiles
+VM-Config;             @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+.ZIP" "+.7z" "+.RAR" "+.bin"
+VM-Config;             @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+.ZIP" "+.7z" "+.RAR"
+
+VM-Config;             @SOURCE1a;             F:\Hyper-V\Config\Virtual Machines
+VM-Config;             @SOURCE1b;             %SystemDrive%\ProgramData\Microsoft\Windows\Hyper-V\Virtual Machines
+VM-Config;             @DEST1a;               %@REMOTE_ARCHIVE1%\Application Configuration
+VM-Config;             @DEST1b;               %@REMOTE_ARCHIVE2%\Application Configuration
+
+VM-Config;             @SOURCE2a;             %@SOURCE1a%
+VM-Config;             @SOURCE2b;             %@SOURCE1b%
+VM-Config;             @DEST2a;               \\SERVER1\Backups$\Virtualization
+VM-Config;             @DEST2b;               \\SERVER2\Backups$\Virtualization
+
+VM-Config;             @OPTIONS;              /MIR /COPYALL /SECFIX
+VM-Config;             @SAMESOURCE;           TRUE
+VM-Config;             @USE_VSS;              TRUE
+VM-Config;             @SHOWTREE;             TRUE
+VM-Config;             @JOBFREQ;              DAILY
+VM-Config;             @JOBTIME;              04:00:00
+VM-Config;             @JOBUSER;              %@SYS-SCHED-ACCT%
+VM-Config;             @USE_LOCAL_ZIP;        TRUE
+VM-Config;             @MAKE_FILES;           FALSE
+VM-Config;             @KEEP_FILES;           1
+VM-Config;             @MAKE_TIMED;           TRUE
+VM-Config;             @KEEP_TIMED;           5
+VM-Config;             @MAKE_MONTHLY;         TRUE
+VM-Config;             @KEEP_MONTHLY;         3
+-----------------------------------------------------------------------------------------
+UrBackup;              #CREATEARCHIVES;     
+UrBackup;              @INFO;                 UrBackup Configuration
+UrBackup;              @SKIPFILE;             *.LOG *.LOG_* *.LOG.* *.TMP *.EXE *.DLL *.BAT *.SH *.ICO *.PNG *.JPG
+UrBackup;              @SKIPDIR;              Zips ZipFiles Lang Data Windows_Components ImDisk FileIndex WWW 
+UrBackup;              @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+Lang\+" "+Data\+" "+Windows_Components\+" "+ImDisk\+" "+FileIndex\+" "+WWW\+" "+.EXE" "+.DLL" "+.BAT" "+.SH" "+.LOG" "+.LOG.+" "+.ICO" "+.PNG" "+.JPG"
+
+UrBackup;              @SOURCE0a;             %SystemDrive%\Progra~1\UrBackup
+UrBackup;              @SOURCE0b;             %SystemDrive%\Progra~2\UrBackup
+UrBackup;              @DEST0;                %@BACKUPS%\Configs
+UrBackup;              @SKIPFILE0;            %@SKIPFILE% *.DB* *.DAT
+UrBackup;              @EXEMPTION0;           %@EXEMPTION% "+.DB+" "+.DAT"
+
+UrBackup;              @SOURCE1a;             %@SOURCE0a%
+UrBackup;              @SOURCE1b;             %@SOURCE0b%
+UrBackup;              @DEST1a;               %@REMOTE_ARCHIVE1%\Application Configuration
+UrBackup;              @DEST1b;               %@REMOTE_ARCHIVE2%\Application Configuration
+
+UrBackup;              @SOURCE2a;             %@SOURCE0a%
+UrBackup;              @SOURCE2b;             %@SOURCE0b%
+UrBackup;              @DEST2a;               \\SERVER1\Backups$\UrBackup
+UrBackup;              @DEST2b;               \\SERVER2\Backups$\UrBackup
+
+UrBackup;              @SOURCE3a;             %SystemDrive%\Progra~1\UrBackupServer
+UrBackup;              @SOURCE3b;             %SystemDrive%\Progra~2\UrBackupServer
+UrBackup;              @DEST3;                %@DEST0%
+UrBackup;              @SKIPFILE3;            %@SKIPFILE% *.DB* *.UB *.SQL *.DAT
+UrBackup;              @EXEMPTION3;           %@EXEMPTION% "+.DB+" "+.UB" "+.SQL" "+.DAT"
+
+UrBackup;              @SOURCE4a;             %@SOURCE3a%
+UrBackup;              @SOURCE4b;             %@SOURCE3b%
+UrBackup;              @DEST4a;               %@DEST1a%
+UrBackup;              @DEST4b;               %@DEST1b%
+
+UrBackup;              @SOURCE5a;             %@SOURCE3a%
+UrBackup;              @SOURCE5b;             %@SOURCE3b%
+UrBackup;              @DEST5a;               %@DEST2a%
+UrBackup;              @DEST5b;               %@DEST2b%
+
+UrBackup;              @OPTIONS;              /MIR /COPYALL /SECFIX
+UrBackup;              @SAMESOURCE;           TRUE
+UrBackup;              @USE_VSS;              TRUE
+UrBackup;              @SHOWTREE;             TRUE
+UrBackup;              @JOBFREQ;              DAILY
+UrBackup;              @JOBTIME;              02:40:00
+UrBackup;              @JOBUSER;              %@SYS-SCHED-ACCT%
+UrBackup;              @UPDATESCHED;          FALSE
+UrBackup;              @USE_LOCAL_ZIP;        TRUE
+UrBackup;              @MAKE_FILES;           FALSE
+UrBackup;              @KEEP_FILES;           1
+UrBackup;              @MAKE_TIMED;           TRUE
+UrBackup;              @KEEP_TIMED;           10
+UrBackup;              @MAKE_MONTHLY;         TRUE
+UrBackup;              @KEEP_MONTHLY;         3
+-----------------------------------------------------------------------------------------
+MRTG-Web;              #CREATEARCHIVES;     
+MRTG-Web;              @INFO;                 MRTG Web Configuration
+MRTG-Web;              @SKIPFILE;             *.ZIP *.7z *.RAR
+MRTG-Web;              @SKIPDIR;              Zips ZipFiles
+MRTG-Web;              @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+.ZIP" "+.7z" "+.RAR"
+
+MRTG-Web;              @SOURCE1;              D:\Websites\wwwRoot\MRTG
+MRTG-Web;              @DEST1;                D:\Websites\[Backups]
+
+MRTG-Web;              @OPTIONS;              /MIR /COPYALL /SECFIX
+MRTG-Web;              @SHOWTREE;             TRUE
+MRTG-Web;              @JOBFREQ;              DAILY
+MRTG-Web;              @JOBTIME;              04:00:00
+MRTG-Web;              @UPDATESCHED;          TRUE
+MRTG-Web;              @MAKE_FILES;           FALSE
+MRTG-Web;              @KEEP_FILES;           1
+MRTG-Web;              @MAKE_TIMED;           TRUE
+MRTG-Web;              @KEEP_TIMED;           20
+MRTG-Web;              @MAKE_MONTHLY;         TRUE
+MRTG-Web;              @KEEP_MONTHLY;         6
+-----------------------------------------------------------------------------------------
+NetworkBackup;         #CREATEARCHIVES;     
+NetworkBackup;         @INFO;                 Full System Backup to Network Drive
+NetworkBackup;         @THISHASH;             NOHASH
+NetworkBackup;         @SKIPFILE;             *.ZIP *.7z *.RAR
+NetworkBackup;         @SKIPDIR;              Zips ZipFiles
+NetworkBackup;         @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+.ZIP" "+.7z" "+.RAR"
+
+NetworkBackup;         @SOURCE1;              %SystemDrive%\
+NetworkBackup;         @DEST1a;               %@REMOTE_ARCHIVE1%\SysBackups
+NetworkBackup;         @DEST1b;               %@REMOTE_ARCHIVE2%\SysBackups
+
+NetworkBackup;         @SOURCE2;              
+NetworkBackup;         @DEST2a;               
+NetworkBackup;         @DEST2b;               
+
+NetworkBackup;         @OPTIONS;              /MIR /COPYALL /SECFIX
+NetworkBackup;         @SHOWTREE;             TRUE
+NetworkBackup;         @JOBFREQ;              MONTHLY /MO first
+NetworkBackup;         @JOBTIME;              01:00:00
+NetworkBackup;         @JOBDATE;              /D SAT
+NetworkBackup;         @UPDATESCHED;          TRUE
+NetworkBackup;         @HIDE_FULL_PATH;       TRUE
+NetworkBackup;         @MAKE_FILES;           FALSE
+NetworkBackup;         @KEEP_FILES;           1
+NetworkBackup;         @MAKE_TIMED;           TRUE
+NetworkBackup;         @KEEP_TIMED;           3
+NetworkBackup;         @MAKE_YEARLY;          TRUE
+NetworkBackup;         @KEEP_YEARLY;          2
+-----------------------------------------------------------------------------------------
+WinThemes;             #CREATEARCHIVES;     
+WinThemes;             @INFO;                 Windows Desktop Themes
+WinThemes;             @SKIPFILE;             *.ZIP *.7z *.RAR
+WinThemes;             @SKIPDIR;              Zips ZipFiles
+WinThemes;             @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+.ZIP" "+.7z" "+.RAR"
+
+WinThemes;             @SOURCE;               %USERPROFILE%\AppData\Local\Microsoft\Windows\Themes
+WinThemes;             @DEST;                 %@BACKUPS%\Themes
+
+WinThemes;             @SHOWTREE;             TRUE
+WinThemes;             @JOBFREQ;              DAILY
+WinThemes;             @JOBTIME;              21:00:00
+WinThemes;             @UPDATESCHED;          TRUE
+WinThemes;             @MAKE_FILES;           TRUE
+WinThemes;             @KEEP_FILES;           1
+WinThemes;             @MAKE_TIMED;           TRUE
+WinThemes;             @KEEP_TIMED;           10
+WinThemes;             @MAKE_MONTHLY;         TRUE
+WinThemes;             @KEEP_MONTHLY;         3
+-----------------------------------------------------------------------------------------
+BackupServer;          #CREATEARCHIVES;     
+BackupServer;          @INFO;                 UrBackup Server Config
+BackupServer;          @FILESPEC;             server_ident*.*
+BackupServer;          @SKIPFILE;             
+BackupServer;          @SKIPDIR;              
+BackupServer;          @EXEMPTION;            
+BackupServer;          @ROOTFOLDER1;          \UrBackup\UrBackup
+BackupServer;          @ROOTFOLDER2;          \SysBackups\UrBackup
+
+BackupServer;          @SOURCE1a;             %SystemDrive%%@ROOTFOLDER1%
+BackupServer;          @SOURCE1b;             %SystemDrive%%@ROOTFOLDER2%
+BackupServer;          @SOURCE1c;             D:%@ROOTFOLDER1%
+BackupServer;          @SOURCE1d;             D:%@ROOTFOLDER2%
+BackupServer;          @SOURCE1e;             E:%@ROOTFOLDER1%
+BackupServer;          @SOURCE1f;             E:%@ROOTFOLDER2%
+BackupServer;          @SOURCE1g;             F:%@ROOTFOLDER1%
+BackupServer;          @SOURCE1h;             F:%@ROOTFOLDER2%
+BackupServer;          @SOURCE1i;             G:%@ROOTFOLDER1%
+BackupServer;          @SOURCE1j;             G:%@ROOTFOLDER2%
+BackupServer;          @DEST1;                %@BACKUPS%\UrBackup
+
+BackupServer;          @SOURCE2a;             %@SOURCE1a%
+BackupServer;          @SOURCE2b;             %@SOURCE1b%
+BackupServer;          @SOURCE2c;             %@SOURCE1c%
+BackupServer;          @SOURCE2d;             %@SOURCE1d%
+BackupServer;          @SOURCE2e;             %@SOURCE1e%
+BackupServer;          @SOURCE2f;             %@SOURCE1f%
+BackupServer;          @SOURCE2g;             %@SOURCE1g%
+BackupServer;          @SOURCE2h;             %@SOURCE1h%
+BackupServer;          @SOURCE2i;             %@SOURCE1i%
+BackupServer;          @SOURCE2j;             %@SOURCE1j%
+BackupServer;          @DEST2a;               %@REMOTE_ARCHIVE1%\Application Configuration
+BackupServer;          @DEST2b;               %@REMOTE_ARCHIVE2%\Application Configuration
+
+BackupServer;          @USE_7z;               
+BackupServer;          @USE_VSS;              
+BackupServer;          @SHOWTREE;             TRUE
+BackupServer;          @JOBFREQ;              DAILY
+BackupServer;          @JOBTIME;              00:15:00
+BackupServer;          @JOBDATE;     
+BackupServer;          @UPDATESCHED;          TRUE
+BackupServer;          @MAKE_DAILY;           TRUE
+BackupServer;          @KEEP_DAILY;           20
+BackupServer;          @MAKE_MONTHLY;         TRUE
+BackupServer;          @KEEP_MONTHLY;         3
+-----------------------------------------------------------------------------------------
+TestBackup;            #CREATEARCHIVES;     
+TestBackup;            @INFO;                 Folder Backups TESTING
+TestBackup;            @SKIPFILE;             *.ZIP *.7z *.RAR  *.BAK *.TMP
+TestBackup;            @SKIPDIR;              .Git Zips ZipFiles LogonScripts Old Temp [Test] Services SUS SysLog
+TestBackup;            @EXEMPTION;            "+\.Git" "+Input\" "+Zips\+" "+ZipFiles\+" "+LogonScripts\+" "+Old\+" "+Temp\+" "+[Test]\+" "+Services\+" "+SUS\+" "+SysLog\+" "+.ZIP" "+.7z" "+.RAR"  "+.BAK" "+.TMP"
+
+TestBackup;            @SOURCEa;              %SystemDrive%\Scripts\Batch
+TestBackup;            @SOURCEb;              %SystemDrive%\Scripts\Bat\
+TestBackup;            @SOURCEc;              D:\Scripts\Bat
+TestBackup;            @DEST;                 %@BACKUPS%\Scripts\
+
+TestBackup;            @SOURCE2;              %SystemDrive%\Scripts\Bat\Input
+TestBackup;            @DEST2;                %@DEST%
+TestBackup;            @EXEMPTION2;           "+Old\+" "+[Test]\+" "+.ZIP" "+.7z" "+.RAR" "+.BAK" "+.TMP"
+
+TestBackup;            @SOURCE3;              \\%COMPUTERNAME%\Logs$\Archiving
+TestBackup;            @DEST3a;               %@DEST%
+TestBackup;            @EXEMPTION3a;          "+Old\+" "+.ZIP" "+.7z" "+.RAR"
+
+TestBackup;            @OPTIONS;              /MIR /COPYALL /SECFIX
+TestBackup;            @SHOWTREE;             TRUE
+TestBackup;            @JOBFREQ;              HOURLY /MO 4
+TestBackup;            @JOBTIME;              00:00:00
+TestBackup;            @UPDATESCHED;          TRUE
+TestBackup;            @MAKE_FILES;           TRUE
+TestBackup;            @KEEP_FILES;           2
+TestBackup;            @MAKE_TIMED;           TRUE
+TestBackup;            @KEEP_TIMED;           6
+TestBackup;            @MAKE_DAILY;           TRUE
+TestBackup;            @KEEP_DAILY;           3
+TestBackup;            @TESTMODE;             TRUE
+TestBackup;            @MAIL;                 FALSE
+TestBackup;            @MAILSENDER;           LogAdmin-Test%@ORGFQDN%
+TestBackup;            @RCPT-TO;              %@TEST-RCPTS%
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#########################################################################################
+#########################################################################################
+#########################################################################################
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+LogZips;               #MOVEARCHIVES;     
+LogZips;               @INFO;                 Maintenance Logs Archives
+LogZips;               @EXTENSIONS;           ZIP 7z RAR
+LogZips;               @SKIPDIR;              SpecialFolder
+
+LogZips;               @SOURCE1;              %WinDir%\System32\LogFiles
+LogZips;               @DEST1a;               %@REMOTE_ARCHIVE1%
+LogZips;               @DEST1b;               %@REMOTE_ARCHIVE2%
+
+LogZips;               @SOURCE2;              %SystemDrive%\Storage\Logs
+LogZips;               @DEST2a;               %@DEST1a%
+LogZips;               @DEST2b;               %@DEST1b%
+
+LogZips;               @SOURCE3;              D:\Storage\Logs
+LogZips;               @DEST3a;               %@DEST1a%
+LogZips;               @DEST3b;               %@DEST1b%
+
+LogZips;               @SOURCE4;              E:\Storage\Logs
+LogZips;               @DEST4a;               %@DEST1a%
+LogZips;               @DEST4b;               %@DEST1b%
+
+LogZips;               @SOURCE5;              F:\Storage\Logs
+LogZips;               @DEST5a;               %@DEST1a%
+LogZips;               @DEST5b;               %@DEST1b%
+
+LogZips;               @JOBFREQ;              DAILY
+LogZips;               @JOBTIME;              04:15:00
+LogZips;               @JOBUSER;              %@SYS-SCHED-ACCT%
+LogZips;               @MOVE_AFTER;           10
+LogZips;               @PURGE_AFTER;          200
+LogZips;               @MAIL;                 TRUE
+-----------------------------------------------------------------------------------------
+ScriptZips;            #MOVEARCHIVES;     
+ScriptZips;            @INFO;                 Maintenance Scripts Archives
+ScriptZips;            @EXTENSIONS;           ZIP 7z RAR
+ScriptZips;            @SKIPDIR;              SpecialFolder
+ScriptZips;            @SKIPFILE;             Generic.Input
+
+ScriptZips;            @SOURCE1;              %SystemDrive%\Scripts\Zips
+ScriptZips;            @DEST1a;               %@REMOTE_ARCHIVE1%
+ScriptZips;            @DEST1b;               %@REMOTE_ARCHIVE2%
+
+ScriptZips;            @SOURCE2;              D:\Scripts\Zips
+ScriptZips;            @DEST2a;               %@DEST1a%
+ScriptZips;            @DEST2b;               %@DEST1b%
+
+ScriptZips;            @SOURCE3;              %@STORAGE%\Source
+ScriptZips;            @DEST3a;               %@DEST1a%
+ScriptZips;            @DEST3b;               %@DEST1b%
+
+ScriptZips;            @SOURCE4;              %@STORAGE%\Scripts_Source
+ScriptZips;            @DEST4a;               %@DEST1a%
+ScriptZips;            @DEST4b;               %@DEST1b%
+
+ScriptZips;            @JOBFREQ;              DAILY
+ScriptZips;            @JOBTIME;              03:15:00
+ScriptZips;            @JOBUSER;              %@SYS-SCHED-ACCT%
+ScriptZips;            @MOVE_AFTER;           10
+ScriptZips;            @PURGE_AFTER;          200
+ScriptZips;            @MAIL;                 TRUE
+-----------------------------------------------------------------------------------------
+MRTGZips;              #MOVEARCHIVES;     
+MRTGZips;              @INFO;                 MRTG Web Archives
+MRTGZips;              @EXTENSIONS;           ZIP 7z RAR
+MRTGZips;              @SKIPDIR;              SpecialFolder
+
+MRTGZips;              @SOURCE1a;             %SystemDrive%\WebSite\wwwroot\MRTG\Zips
+MRTGZips;              @SOURCE1b;             %SystemDrive%\WebSites\wwwroot\MRTG\Zips
+MRTGZips;              @SOURCE1c;             D:\WebSite\wwwroot\MRTG\Zips
+MRTGZips;              @SOURCE1d;             D:\WebSites\wwwroot\MRTG\Zips
+MRTGZips;              @DEST1a;               %@REMOTE_ARCHIVE1%
+MRTGZips;              @DEST1b;               %@REMOTE_ARCHIVE2%
+
+MRTGZips;              @JOBFREQ;              DAILY
+MRTGZips;              @JOBTIME;              05:20:00
+MRTGZips;              @JOBUSER;              %@SYS-SCHED-ACCT%
+MRTGZips;              @MOVE_AFTER;           10
+MRTGZips;              @PURGE_AFTER;          400
+MRTGZips;              @MAIL;                 TRUE
+-----------------------------------------------------------------------------------------
+TestZips;              #MOVEARCHIVES;     
+TestZips;              @INFO;                 Test Zip Archives - Local
+TestZips;              @DESTFORMAT;           {INFO}
+TestZips;              @EXTENSIONS;           ZIP 7z RAR
+TestZips;              @SKIPDIR;              SpecialFolder
+TestZips;              @SKIPFILE;             Generic.Input
+
+TestZips;              @SOURCE1;              %SystemDrive%\Temp\Logs
+TestZips;              @DEST1;                %SystemDrive%\Temp\Junk.Dest
+
+TestZips;              @SOURCE2;              %SystemDrive%\Temp\Logs.Bad
+TestZips;              @DEST2;                %SystemDrive%\Temp\Junk.Other Long Folder
+
+TestZips;              @JOBFREQ;              DAILY
+TestZips;              @JOBTIME;              06:05:00
+TestZips;              @UPDATESCHED;          TRUE
+TestZips;              @MOVE_AFTER;           1
+TestZips;              @PURGE_AFTER;          3
+TestZips;              @TESTMODE;             TRUE
+TestZips;              @MAIL;                 TRUE
+TestZips;              @MAILSENDER;           LogAdmin-Test%@ORGFQDN%
+TestZips;              @RCPT-TO;              %@TEST-RCPTS%
+TestZips;              @ALERT-TO;             %@TEST-RCPTS%
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#########################################################################################
+#########################################################################################
+#########################################################################################
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MultiTest;             #RETAINBACKUPS;     
+MultiTest;             @INFO;                 Backups Archival Testing #1
+MultiTest;             @USE_ROBOCOPY;         FALSE
+MultiTest;             @SKIPFILE;             *.DAT *.BAK *.TMP *.RAR *.7z
+MultiTest;             @SKIPDIR;              Old Obsolete
+MultiTest;             @EXEMPTION;            "\Old\" "\Obsolete\" ".DAT" ".RAR" ".7z" ".BAK" ".TMP"
+MultiTest;             @JOBTIME;              04:00:00
+MultiTest;             @JOBDELAY;             30
+MultiTest;             @JOBUSER;              %@SYS-SCHED-ACCT%
+MultiTest;             @TESTMODE;             TRUE
+MultiTest;             @MAIL;                 TRUE
+MultiTest;             @MAILSENDER;           LogAdmin-Test%@ORGFQDN%
+MultiTest;             @RCPT-TO;              %@TEST-RCPTS%
+MultiTest;             @ALERT-TO;             %@TEST-RCPTS%
+
+MultiTest;             @MSG1;                 Daily Archive of Test Zip Files [LOCAL]
+MultiTest;             @SOURCE1;              %SystemDrive%\TEMP\Logs\ZipFiles
+MultiTest;             @DEST1;                %SystemDrive%\TEMP\Junk\Zip-Archives
+MultiTest;             @KEEP_SOURCE1;         3
+MultiTest;             @KEEP_DEST1;           9
+MultiTest;             @FILESPEC1;            *.ZIP
+MultiTest;             @RECURSION1;     
+MultiTest;             @DATEINFO1;            DESTINATION
+
+MultiTest;             @MSG2;                 Daily Archive of Main Log Files [LOCAL]
+MultiTest;             @SOURCE2;              \\%COMPUTERNAME%\Logs$
+MultiTest;             @DEST2;                %SystemDrive%\TEMP\Junk\Log-Archives
+MultiTest;             @KEEP_SOURCE2;         400
+MultiTest;             @KEEP_DEST2;           9
+MultiTest;             @FILESPEC2;            *.*
+MultiTest;             @EXEMPTION2;           "\DFSRprivate\" "\Old\" "\Obsolete\" "Code" ".DAT" ".RAR" ".BAK" ".TMP"
+MultiTest;             @RECURSION2;           TRUE
+MultiTest;             @DATEINFO2;            DESTINATION
+
+MultiTest;             @MSG3;                 Daily Secondary Archive of All Text Files [to NAS]
+MultiTest;             @SOURCE3;              %SystemDrive%\TEMP\Junk\Log-Archives
+MultiTest;             @DEST3a;               %@REMOTE_ARCHIVE1%\[Testing Zone]\RetainBackups\%COMPUTERNAME%
+MultiTest;             @DEST3b;               %@REMOTE_ARCHIVE2%\[Testing Zone]\RetainBackups\%COMPUTERNAME%
+MultiTest;             @KEEP_SOURCE3;         2
+MultiTest;             @KEEP_DEST3;           5
+MultiTest;             @FILESPEC3;            *.TXT
+MultiTest;             @RECURSION3;           TRUE
+MultiTest;             @DATEINFO3;            BOTH
+
+MultiTest;             @MSG4;                 Some Random Location for Generating an Error
+MultiTest;             @SOURCE4;              F:\Bob\Junk
+MultiTest;             @DEST4a;               %@DEST3a%
+MultiTest;             @DEST4b;               %@DEST3b%
+MultiTest;             @KEEP_SOURCE4;         2
+MultiTest;             @KEEP_DEST4;           5
+MultiTest;             @FILESPEC4;            *.ZIP
+MultiTest;             @EXEMPTION4;           "\Old\" "\Obsolete\" "Code" ".DAT" ".RAR" ".BAK" ".TMP"
+MultiTest;             @RECURSION4;     
+MultiTest;             @DATEINFO4;            BOTH
+-----------------------------------------------------------------------------------------
+SUBST_TEST;            #RETAINBACKUPS;     
+SUBST_TEST;            @INFO;                 RetainBackups SUBST Test #1
+SUBST_TEST;            @USE_ROBOCOPY;         FALSE
+SUBST_TEST;            @JOBFREQ;              WEEKLY
+SUBST_TEST;            @JOBTIME;              21:00:00
+SUBST_TEST;            @JOBDATE;              /D SUN,MON,TUE,WED,THU,FRI,SAT
+SUBST_TEST;            @JOBUSER;              SYSTEM
+SUBST_TEST;            @TESTMODE;             TRUE
+SUBST_TEST;            @MAIL;                 FALSE
+SUBST_TEST;            @MAILSENDER;           LogAdmin-Test%@ORGFQDN%
+SUBST_TEST;            @RCPT-TO;              %@TEST-RCPTS%
+SUBST_TEST;            @ALERT-TO;             %@TEST-RCPTS%
+
+SUBST_TEST;            @MSG1;                 Copying from Temp Source to Temp Destination
+SUBST_TEST;            @SOURCE1;              %SystemDrive%\Temp\Source
+SUBST_TEST;            @DEST1;                %SystemDrive%\Temp\Dest
+SUBST_TEST;            @KEEP_SOURCE1;         6
+SUBST_TEST;            @KEEP_DEST1;           3
+SUBST_TEST;            @FILESPEC1;            *.DLL
+SUBST_TEST;            @RECURSION1;     
+SUBST_TEST;            @DATEINFO1;            BOTH-+
+-----------------------------------------------------------------------------------------
