@@ -1,5 +1,4 @@
 # BrainWave Scripting Repository
-The Purpose Behind the Admin Script Repository
 
 The BrainWave Admin Script Repository is a collection of Windows shell scripts, other scripts
 (KiXtart, VBscript, Powershell, etc.), input and configuration text files, and executable files that
