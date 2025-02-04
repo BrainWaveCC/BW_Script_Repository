@@ -6,7 +6,7 @@
  rem Created On: 08 Oct 2014
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 26 Sep 2024 / 03 Sep 2024 / 30 Aug 2024 / 28 Jul 2024
+ rem Updated On: 01 Feb 2025 / 26 Sep 2024 / 03 Sep 2024 / 30 Aug 2024
  rem         By: Andrew S. Baker
  rem
 
@@ -17,11 +17,12 @@
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
  rem
- rem    AUTORUNSC .............. https://technet.microsoft.com/en-us/sysinternals/bb963902
+ rem    AUTORUNSC .............. https://learn.microsoft.com/en-us/sysinternals/downloads/autoruns
+ rem    PSTOOLS ................ https://learn.microsoft.com/en-us/sysinternals/downloads/pstools
  rem    Blat ................... http://www.blat.net/
- rem    COMPINFO ............... http://www.beyondlogic.org/solutions/compinfo/compinfo.htm (no longer available)
  rem    DIFF ................... http://gnuwin32.sourceforge.net/packages/diffutils.htm
  rem    InfoZip Utilities ...... http://sourceforge.net/projects/infozip/files/
+ rem    MiTec System Info X .... https://www.mitec.cz/msi.html
  rem    SysLogGen .............. http://www.snmpsoft.com/freetools/sysloggen.html
  rem
  rem    AuditPol ............... Resource Kit (Native in Vista+)
@@ -234,6 +235,9 @@
  :::  -- Refactoring of the scheduled jobs verification routine;
  :::  -- Created :LogCriticalFailure routine for early job failures;
  :::
+ :::  (Feb 2025) v10.0 -- Replaced COMPINFO with MiTec System Info X
+ :::  to get around the constant process crashes of COMPINFO;
+ :::
  ::: --------
  :::  NOTES:
  ::: --------
@@ -262,10 +266,10 @@
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 26 Sep 2024 / 30 Aug 2024 / 10 May 2024
+ rem === Updated On: 01 Feb 2025 / 26 Sep 2024 / 30 Aug 2024 / 10 May 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v9.9.0.990 b
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v10.0.0.1000 c
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -274,7 +278,7 @@
  rem -- Check for Essential Utilities and/or Scripts
  SET #BWUTILS="%~dp0SetDrive.BAT" CHANGECASE.EXE FILEHASH.EXE MAKESTRING.EXE READABLE.EXE SUBSTRING.EXE
  SET #MSUTILS=AUDITPOL.EXE AUTORUNSC.EXE DRIVERQUERY.EXE FINDSTR.EXE FORFILES.EXE SCHTASKS.EXE SORT.EXE SYSTEMINFO.EXE WMIC.EXE
- SET #O_UTILS=BLAT.EXE DIFF.EXE SYSLOGGEN.EXE TAIL.EXE ZIP.EXE
+ SET #O_UTILS=BLAT.EXE DIFF.EXE GETSYS.EXE SYSLOGGEN.EXE TAIL.EXE ZIP.EXE
  FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% %#O_UTILS%
  IF ERRORLEVEL 64 (CALL :LogCriticalFailure ABORTED - MISSING CRITICAL FILES& GOTO :ExitBatch)
 
@@ -514,7 +518,7 @@
 
  rem ==========================================================================
  rem === Obtain Current System Configuration Info
- rem === Updated On: 24 Jan 2019 / 27 Nov 2018
+ rem === Updated On: 01 Feb 2025 / 24 Jan 2019 / 27 Nov 2018
  rem ==========================================================================
 :GetSystemInfo
  CALL :WriteLn "GENERATE SYSTEM CONFIG..." >NUL
@@ -526,7 +530,7 @@
 
 	 IF /I "!@EXTENDED_CONFIG!"=="TRUE" (
 		 CALL :GetConfig  SYSTEMINFO
-		 CALL :GetConfig  COMPINFO
+		 CALL :GetConfig  GETSYS /so /ld /na /la /id /usb
 		 CALL :GetConfig  NET CONFIG SERVER
 		 CALL :GetConfig  NET CONFIG WORKSTATION
 		 CALL :GetConfig  NET SHARE
@@ -1595,4 +1599,4 @@
 	 ECHO:
  )
  CALL :ShowStatus "FINISHED"
-     
+                                                                                                                                                  

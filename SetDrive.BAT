@@ -5,7 +5,7 @@
  rem Created On: 22 Jun 2003
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 23 Sep 2024 / 11 Sep 2024 / 08 Sep 2024 / 03 Sep 2024 / 04 Aug 2024
+ rem Updated On: 17 Jan 2025 / 23 Sep 2024 / 11 Sep 2024 / 08 Sep 2024
  rem         By: Andrew S. Baker
  rem
 
@@ -244,6 +244,9 @@
  :::  -- Set @VERBOSE_OFF to "ECHO OFF" even outside the DEBUG routines;
  :::  -- All code page to be set to a custom value, if %2 is supplied;
  :::
+ :::  (Jan 2025) v19.8 -- Added the @COMPROMISED_IPs variable to track public IP
+ :::  addresses related to firewall credential/configuration compromises;
+ :::
  :::
  :::  ADDITIONAL SCRIPTING TOOLS/INFO:
  :::  -------------------------------------------------------------------------
@@ -253,7 +256,7 @@
 
 
  rem -- Current Script Version
- SET "@VAR_VER=%~nx0 v19.7.0.1972" a
+ SET "@VAR_VER=%~nx0 v19.8.0.1980" a
 
 
  rem ==========================================================================
@@ -386,7 +389,7 @@
 
 
  rem -- Obtain Server Input Lists (Customized or Default)
- rem -- Updated On: 18 Jun 2024 / 16 Jun 2024 / 10 May 2024 / 26 Feb 2024 / 16 Mar 2022
+ rem -- Updated On: 17 Jan 2025 / 18 Jun 2024 / 16 Jun 2024 / 10 May 2024
  SET @INPUT=%~dp0Input\
  SET @L_INPUT=%~dp0LogonScripts\Scripts\Bat\Input\
 
@@ -402,6 +405,7 @@
  CALL :FindList AUDIT-INFO       [AuditSettings]
  CALL :FindList BAD_PROCESS      [BadProcesses]
  CALL :FindList BAD_SERVICE      [BadServices]
+ CALL :FindList COMPROMISED_IPS  [CompromisedIPs]
  CALL :FindList GOOD_SERVICE     [KnownServices]
  CALL :FindList PROCESS-INFO     [LongProcesses]
  CALL :FindList SCANEXEMPT       [ScanExemption]
@@ -701,4 +705,4 @@
 	 FOR %%s IN (%@VALID_SESSIONS%) DO IF /I "%@SESSION_NAME%"=="%%~s" SET @CONSOLE_SESSION=TRUE
 	 FOR %%u IN (%@SERVICE_ACCTS%)  DO IF /I "%@SESSION_USER%"=="%%~u" SET @CONSOLE_SESSION=FALSE
  GOTO :EOF
-                                                              
+                                                                            
