@@ -6,13 +6,13 @@
  rem Created On: 10 May 2005
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 01 Feb 2025 / 11 Sep 2024 / 28 Jul 2024 / 14 Jul 2024
+ rem Updated On: 29 Sep 2025 / 14 Aug 2025 / 01 Feb 2025 / 11 Sep 2024 / 28 Jul 2024
  rem         By: Andrew S. Baker
  rem
 
 
  rem ==========================================================================
- rem  OS Required: Windows 2003 or later
+ rem  OS Required: Windows 2008 or later (previously Windows 2003+)
  rem
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
@@ -202,31 +202,33 @@
  :::  (Feb 2025) v9.7 -- Replaced COMPINFO with MiTec System Info X
  :::  to get around the constant process crashes of COMPINFO;
  :::
+ :::  (Sep 2025) v9.8 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
  :::
- :::  ADDITIONAL SCRIPTING TOOLS/INFO:
+ :::
+ :::  SCRIPTING SYNTAX RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://www.BrainWaveCC.com/knowledge-base/scripting-and-automation-options-for-windows/
- :::  https://www.BrainWaveCC.com/knowledge-base/must-have-utilities-for-windows-usersadmins/
+ :::  https://ss64.com/ .......... CMD and Powershell syntax
+ :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
  :::  -------------------------------------------------------------------------
 
 
  rem ==========================================================================
  rem === Generate Filtered CMD Title
- rem === Updated On: 26 May 2020 / 30 Mar 2018
+ rem === Updated On: 14 Aug 2025 / 26 May 2020 / 30 Mar 2018
  rem ==========================================================================
 :DisplayTitle
- SET @TTT= %*
- SET @TTT=%@TTT:/?={HELP}%
+ SET "@TTT=%* "
+ SET "@TTT=%@TTT:/?={HELP}%"
  TITLE [%USERDOMAIN%\%USERNAME%] - %~f0 %@TTT% >NUL 2>NUL
- SET @TTT=
+ SET "@TTT="
 
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 01 Feb 2025 / 11 Sep 2024 / 20 Jun 2024 / 11 Jun 2024
+ rem === Updated On: 29 Sep 2025 / 01 Feb 2025 / 11 Sep 2024 / 20 Jun 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v9.7.0.1970
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v9.8.0.1980
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=1 -c "H HELP ?" -x "?? H2" -s %*
@@ -254,7 +256,7 @@
  rem -- Check for Essential Utilities and/or Scripts
  SET #BWUTILS="%~dp0SetDrive.BAT" READABLE.EXE
  SET #MSUTILS=AT CHOICE CMD NET NOTEPAD PING REG SC SCHTASKS TRACERT UPTIME XCOPY
- SET #3_PARTY=BLAT SYSLOGGEN TAIL ZIP
+ SET #3_PARTY=BLAT SYSLOGGEN ZIP
  SET #O_UTILS=7Z NMAP %@PSTOOLS% RESOLVE UPTIME2 WHOSIP TDSSKILLER RMTSHARE SRVINFO LOCAL GETSYS
  FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% %#3_PARTY% -o %#O_UTILS%
  IF ERRORLEVEL 64 GOTO :ExitBatch
@@ -693,14 +695,12 @@
 
  rem ==========================================================================
  rem === Display Full Log
- rem === Updated On: 11 Jun 2024 / 19 Jan 2015 / 08 May 2014
+ rem === Updated On: 29 Sep 2025 / 11 Jun 2024 / 19 Jan 2015 / 08 May 2014
  rem ==========================================================================
 :ShowLogs
- IF "%@QUIET%"=="TRUE" (
-	 DIR "%@LOGFILE%" & HEAD -25 "%@LOGFILE%" & ECHO ... & TAIL -5 "%@LOGFILE%"
- ) ELSE (
-	 DIR "%@LOGFILE%" & HEAD -25 "%@LOGFILE%" & ECHO ... & TAIL -5 "%@LOGFILE%" & START "Forensics Info" "%@LOGFILE%"
- )
+ DIR "%@LOGFILE%"
+ READABLE "%@LOGFILE%" --ST 26 --EN -5 --RD TRUE
+ IF /I NOT "%@QUIET%"=="TRUE" START "Forensics Info" "%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
 
 
@@ -882,7 +882,7 @@
 	 ECHO:
  ) >>"%~1" 2>&1
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -894,7 +894,7 @@
 
  SET %~1=!DATE! at !TIME: =0!
  FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET %~1#="%%~d"
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -906,7 +906,7 @@
 
  FOR /F "TOKENS=*" %%T IN ('TIME /T') DO SET %~1=%%~T
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -921,7 +921,7 @@
  SET @Z=%@Z:'="%& FOR /L %%S IN (1,1,100) DO SET @Z=!@Z:  = !
  SET %~1=%@Z%
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -953,7 +953,7 @@
 	 ECHO:
  ) >>"%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1000,7 +1000,7 @@
 	 ECHO:
  ) >>"%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1045,7 +1045,7 @@
 	 ECHO: >CON
  ) >>"%@LOGFILE%" 2>&1
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1098,7 +1098,7 @@
 	 ECHO:
  ) >>"%@LOGFILE%" 2>&1
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1106,7 +1106,7 @@
  rem === Updated On: 07 Jul 2021
  rem ==========================================================================
 :FindSuspectIPs
- IF NOT DEFINED @IPLIST GOTO :EOF
+ IF NOT DEFINED @IPLIST EXIT /B
 
  CALL :GetTime12 @CTIME
  SET @CMD=Searching Logfile Contents for Suspect IP Addresses: %@IPLIST:;=; %
@@ -1123,7 +1123,7 @@
 	 ECHO:
  ) >>"%@LOGFILE%" 2>&1
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1152,7 +1152,7 @@
 	 SET @ACCESSIBLE=
  )
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1178,7 +1178,7 @@
  SET @RANGE=%@RANGE:(=[%
  SET @RANGE=%@RANGE:)=]%
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1194,7 +1194,7 @@
  SET /A @NEXT=@LEN + 1
  IF DEFINED @COMPSTR CALL SET @COMPSTR=%%@COMPSTR:~0,!@LEN!%%
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1209,7 +1209,7 @@
  ECHO %~1
  ECHO %@DIVIDER-:~-60%
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1221,7 +1221,7 @@
 
  NOW \z \n \n \* *** %* \n \* \v \n \n ""
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1240,7 +1240,7 @@
  ECHO %@DIVIDER-:~-75%
  ECHO:
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1267,7 +1267,7 @@
  ECHO Physical RAM ...... !%~1-TOTAL_RAM!
  ECHO Needs a Reboot .... !%~1-NEEDS_REBOOT!	%@NEEDS_REBOOT_MSG%
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1278,14 +1278,14 @@
  rem %1 = Parameters to Search For
  rem %2 = Variable to Set
 
- SET @OK=& IF "%~1"=="" GOTO :EOF
+ SET @OK=& IF "%~1"=="" EXIT /B
  FOR /F "TOKENS=2-3*" %%v IN ('CHECKPARAMS -q -a -c "%~1" -s %@ALL_PARAMS% 2^>NUL') DO IF /I "%%~v"=="TRUE" (
 	 SET @OK=T
 	 SET @REQ=T
 	 IF NOT "%~2"=="" SET %~2=%%~x
  )
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1298,14 +1298,14 @@
 
  SET @S_MSG=%*& IF "%~2"=="" SET @S_MSG=%1 - This is a Syslog Test Message from %@VER%
  SET @SEV=6
- FOR %%a IN (0 EMERGENCY) DO IF /I "%~1"=="%%~a" SET @SEV=0
- FOR %%a IN (1 ALERT) DO IF /I "%~1"=="%%~a" SET @SEV=1
- FOR %%a IN (2 CRITICAL) DO IF /I "%~1"=="%%~a" SET @SEV=2
- FOR %%a IN (3 ERROR) DO IF /I "%~1"=="%%~a" SET @SEV=3
- FOR %%a IN (4 WARNING) DO IF /I "%~1"=="%%~a" SET @SEV=4
- FOR %%a IN (5 NOTICE) DO IF /I "%~1"=="%%~a" SET @SEV=5
+ FOR %%a IN (0 EMERGENCY) DO   IF /I "%~1"=="%%~a" SET @SEV=0
+ FOR %%a IN (1 ALERT) DO       IF /I "%~1"=="%%~a" SET @SEV=1
+ FOR %%a IN (2 CRITICAL) DO    IF /I "%~1"=="%%~a" SET @SEV=2
+ FOR %%a IN (3 ERROR) DO       IF /I "%~1"=="%%~a" SET @SEV=3
+ FOR %%a IN (4 WARNING) DO     IF /I "%~1"=="%%~a" SET @SEV=4
+ FOR %%a IN (5 NOTICE) DO      IF /I "%~1"=="%%~a" SET @SEV=5
  FOR %%a IN (6 INFORMATION) DO IF /I "%~1"=="%%~a" SET @SEV=6
- FOR %%a IN (7 DEBUG) DO IF /I "%~1"=="%%~a" SET @SEV=7
+ FOR %%a IN (7 DEBUG) DO       IF /I "%~1"=="%%~a" SET @SEV=7
 
  CALL :Prepare4Syslog %@S_MSG%
 
@@ -1317,7 +1317,7 @@
  )
  %@PRINT_IF_DEBUG%
  IF DEFINED #DEBUG ECHO ON
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1340,29 +1340,30 @@
  SET @S_MSG2=!@S_MSG:\=\x5B!
  SET @S_MSG2=!@S_MSG2:"=\x22!
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
- IF NOT DEFINED @DATEFMT SET "@DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz""
- SET "@SCRIPTSTATUS=%~1" & IF "%~1"=="" SET "@SCRIPTSTATUS=RUNNING"
- IF NOT "%~2"=="" (SET "@VER=%~nx0 %~2" & SET "@VERSION=%~2")
+ IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
+ SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
+ IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
+ IF NOT "%~3"=="" (SET @VER=%~nx0 %~2 %~3& SET @VERSION=%~2 %~3)
  IF /I "%~1"=="STARTED" CALL :GetTime @SCRIPT_BEG
  IF /I "%~1"=="FINISHED" (
-	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET "@CHCP_STATUS= {Restoring Code Page:%%C}"
+	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET @CHCP_STATUS= {Restoring Code Page:%%C}
 	 IF DEFINED @END_DEBUG_MODE %@END_DEBUG_MODE:"=%
 	 TITLE %@CUSTOM_TITLE% [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
 	 DATEINFO -t %@SCRIPT_BEG#% -e "hr:min:sec.ms" -o "\n*** DURATION: " 2>NUL
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1380,7 +1381,7 @@
  ECHO CMD SYNTAX:
  ECHO -----------
  ECHO  %~n0  ^<machine_name ^| machine_ip_address^> [OPTIONS]
- ECHO  %~n0  [-h^|-?^|-h2^|-??]
+ ECHO  %~n0  -h^|-?^|-h2^|-??
  ECHO:
  ECHO -------------------
  ECHO OPTION DEFINITIONS:
@@ -1434,4 +1435,4 @@
 	 ECHO    This is especially true for parameters associated with /C: and /V:
  )
  CALL :ShowStatus "FINISHED"
-                                
+                                                                                          

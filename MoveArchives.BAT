@@ -6,13 +6,13 @@
  rem Created On: 03 Nov 2011
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 26 Sep 2024 / 03 Sep 2024 / 28 Jul 2024 / 10 May 2024
+ rem Updated On: 26 Sep 2025 / 14 Aug 2025 / 27 Jun 2025 / 26 Sep 2024
  rem         By: Andrew S. Baker
  rem
 
 
  rem ==========================================================================
- rem  OS Required: Windows 2003 and later
+ rem  OS Required: Windows 2008 or later (previously Windows 2003+)
  rem
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
@@ -191,42 +191,48 @@
  :::  -- Refactoring of the scheduled jobs verification routine;
  :::  -- Created :LogCriticalFailure routine for early job failures;
  :::
+ :::  (Jun 2025) v7.0 -- Extend the number of supported jobs to almost 30, by
+ :::  adding 00 to 09 and 10 to 19 to the existing single digit counters;
  :::
- :::  ADDITIONAL SCRIPTING TOOLS/INFO:
+ :::  (Sep 2025) v7.1 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
+ :::  -- Replaced instances of FORFILES with FILEHASH --JF;
+ :::
+ :::
+ :::  SCRIPTING SYNTAX RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://www.BrainWaveCC.com/knowledge-base/scripting-and-automation-options-for-windows/
- :::  https://www.BrainWaveCC.com/knowledge-base/must-have-utilities-for-windows-usersadmins/
+ :::  https://ss64.com/ .......... CMD and Powershell syntax
+ :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
  :::  -------------------------------------------------------------------------
 
 
  rem ==========================================================================
  rem === Generate Filtered CMD Title
- rem === Updated On: 30 Nov 2020 / 25 Feb 2018
+ rem === Updated On: 14 Aug 2025 / 30 Nov 2020 / 25 Feb 2018
  rem ==========================================================================
 :DisplayTitle
- SET @TTT= %*
- SET @TTT=%@TTT:/?={HELP}%
+ SET "@TTT=%* "
+ SET "@TTT=%@TTT:/?={HELP}%"
  TITLE [%USERDOMAIN%\%USERNAME%] - %~f0 %@TTT% >NUL 2>NUL
- SET @TTT=
+ SET "@TTT="
 
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 26 Sep 2024 / 28 Jul 2024 / 10 May 2024 / 02 May 2024
+ rem === Updated On: 26 Sep 2025 / 27 Jun 2025 / 26 Sep 2024 / 28 Jul 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v6.2.0.630 b
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v7.1.0.710
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=1 -c "H HELP ?" -x "?? H2" -s %*
  IF ERRORLEVEL 1 IF NOT ERRORLEVEL 16 GOTO :HelpMessage
 
  rem -- Check for Essential Utilities and/or Scripts
- SET #BWUTILS="%~dp0SetDrive.BAT"
+ SET #BWUTILS="%~dp0SetDrive.BAT" FILEHASH.EXE
  SET #MSUTILS=CHOICE.EXE FINDSTR.EXE SCHTASKS.EXE
- SET #O_UTILS=BLAT.EXE SYSLOGGEN.EXE TAIL.EXE
+ SET #O_UTILS=BLAT.EXE SYSLOGGEN.EXE
  FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% %#O_UTILS%
- IF ERRORLEVEL 64 (CALL :LogCriticalFailure ABORTED - MISSING CRITICAL FILES& GOTO :ExitBatch)
+ IF ERRORLEVEL 64 (CALL :LogCriticalFailure ABORTED - MISSING CRITICAL FILES & GOTO :ExitBatch)
 
  rem -- Default Variables (Override via CustomVariables.*.TXT)
  SET @MAIL=FALSE
@@ -276,6 +282,10 @@
  SET @LOGLIST="%@LOGFILE%" "%@DEBUGLOG%" "%@ERRORS%"
  SET @CLEANUP="%@TEMPLOG%" "%@SUMMARY%" "%@ERRORS%"
 
+ rem -- Extend Max Job Counter to 20+
+ SET @MORE_JOBS=00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19
+ SET @ALL_JOB_NUMS=%@BASE10% %@MORE_JOBS%
+
  rem -- Ensure Valid Log Processing Values
  CALL :GetInteger @MINROWS "%@MIN_LOG_ROWS%" 005 001 010
  CALL :GetInteger @MAXROWS "%@MAX_LOG_ROWS%" 199 030 399
@@ -321,10 +331,10 @@
 
  rem -- Key Variable Verification
  SET @SOURCEDEST=
- FOR %%C IN ("" %@BASE10%) DO FOR %%X IN ("" %@ALPHA11%) DO IF DEFINED @SOURCE%%~C%%~X (
+ FOR %%C IN ("" %@ALL_JOB_NUMS%) DO FOR %%X IN ("" %@ALPHA11%) DO IF DEFINED @SOURCE%%~C%%~X (
 	 FOR %%L IN ("" %@ALPHA11%) DO IF DEFINED @DEST%%~C%%~L SET @SOURCEDEST=PRESENT
  )
- FOR %%V IN (ALL_PARAMS SOURCEDEST DESTFORMAT EXTENSIONS INFO JOBTIME JOBFREQ MOVE_AFTER PURGE_AFTER ALPHA11 BASE10) DO IF NOT DEFINED @%%~V (
+ FOR %%V IN (ALL_PARAMS SOURCEDEST DESTFORMAT EXTENSIONS INFO JOBTIME JOBFREQ MOVE_AFTER PURGE_AFTER ALPHA11 BASE10 ALL_JOB_NUMS) DO IF NOT DEFINED @%%~V (
 	 ECHO:
 	 ECHO *** WARNING: The @%%~V variable is undefined.
 	 ECHO:
@@ -343,10 +353,10 @@
 
  rem ==========================================================================
  rem === Select Valid Source from List
- rem === Updated On: 20 Feb 2018 / 26 Jun 2017
+ rem === Updated On: 27 Jun 2025 / 20 Feb 2018 / 26 Jun 2017
  rem ==========================================================================
 :SelectSourceFromList
- FOR %%C IN ("" %@BASE10%) DO (
+ FOR %%C IN ("" %@ALL_JOB_NUMS%) DO (
 	 SET @SOURCE%%~C_SET=
 	 FOR %%X IN ("" %@ALPHA11%) DO IF NOT DEFINED @SOURCE%%~C_SET (
 		 IF DEFINED @SOURCE%%~C%%~X IF EXIST "!@SOURCE%%~C%%~X!" (
@@ -360,7 +370,7 @@
 
  rem ==========================================================================
  rem === Display Execution Header and Allow User To Abort Operation
- rem === Updated On: 10 May 2024 / 30 May 2019 / 30 Mar 2015
+ rem === Updated On: 27 Jun 2025 / 10 May 2024 / 30 May 2019 / 30 Mar 2015
  rem ==========================================================================
 :ShowHeader
  TITLE %@JOBNAME% [%@INFO%]
@@ -381,7 +391,7 @@
 	 ECHO *** Files to Skip ..... %@SKIPFILE%
 	 ECHO %@DIVIDER*%
 	 ECHO:
-	 FOR %%C IN ("" %@BASE10%) DO IF DEFINED @SOURCE%%~C (
+	 FOR %%C IN ("" %@ALL_JOB_NUMS%) DO IF DEFINED @SOURCE%%~C (
 		 FOR %%L IN ("" %@ALPHA11%) DO IF DEFINED @DEST%%~C%%~L (
 			 SET /A @JOBCOUNT+=1
 			 CALL :FixDirectoryPath @SOURCE%%~C
@@ -465,13 +475,13 @@
 
  rem ==========================================================================
  rem === Enumerate Primary and Archive Zip Folders for Processing
- rem === Updated On: 27 Dec 2020 / 23 Dec 2020 / 20 Feb 2018
+ rem === Updated On: 27 Jun 2025 / 27 Dec 2020 / 23 Dec 2020 / 20 Feb 2018
  rem ==========================================================================
 :ProcessFolders
  ECHO:
  ECHO STARTED Moving Local Archive Files to Network Storage...
 
- FOR %%C IN ("" %@BASE10%) DO IF DEFINED @SOURCE%%~C (
+ FOR %%C IN ("" %@ALL_JOB_NUMS%) DO IF DEFINED @SOURCE%%~C (
 	 SET @MOVE-NEEDED=TRUE
 
 	 FOR %%L IN ("" %@ALPHA11%) DO IF DEFINED @DEST%%~C%%~L (
@@ -608,7 +618,7 @@
 	 IF "%~1"=="" (ECHO: >>%%B) ELSE (ECHO !@OUT! >>%%B)
  )
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -631,7 +641,7 @@
  IF NOT DEFINED @D_FOLDER SET @D_FOLDER=%~1
  SET @FULL_D_FOLDER=!@D_FOLDER!
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -676,12 +686,12 @@
 	 )
  ) >>"%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Move Zips to Central Storage %@MOVE_AFTER% Days
- rem === Updated On: 28 Jul 2024 / 23 Dec 2020 / 09 Dec 2020 / 24 Feb 2018
+ rem === Updated On: 26 Sep 2025 / 28 Jul 2024 / 23 Dec 2020 / 09 Dec 2020
  rem ==========================================================================
 :MoveToNetwork
  rem %1 = Current Source Folder, Encoded
@@ -694,12 +704,8 @@
  SET @REMOTE=!@REMOTE! "!@D_FOLDER!"
  SET @ZIPEXT=%~3
  SET @ZIPEXT=%@ZIPEXT:+=*%
- SET @FORFILES=FORFILES -s -p"%@S_FOLDER%" -m*.%@ZIPEXT% -d-%@MOVE_AFTER% -c"CMD /C IF @ISDIR==FALSE ECHO @PATH\@FILE"
+ SET @FORFILES=FILEHASH --JF --OLDER %@MOVE_AFTER% -R -D "%@S_FOLDER%" *.%@ZIPEXT%
  SET @FILES_MOVED=0
-
- IF EXIST "%SystemRoot%\System32\FORFILES.EXE" (
-	 SET @FORFILES=%SystemRoot%\System32\FORFILES -s -p "%@S_FOLDER%" -m *.%@ZIPEXT% -d -%@MOVE_AFTER% -c "CMD /C IF @ISDIR==FALSE ECHO @PATH"
- )
 
  rem -- Generate Diagnostics Logging
  IF /I "%@DIAGMODE%"=="TRUE" (
@@ -749,33 +755,29 @@
 	 ECHO:
  ) >>"%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Delete All Zips Older Than %@PURGE_AFTER% Days
- rem === Updated On: 09 Dec 2020 / 11 Mar 2015
+ rem === Updated On: 26 Sep 2025 / 09 Dec 2020 / 11 Mar 2015
  rem ==========================================================================
 :PruneArchive
  rem %1 = Current Network Zip Storage, Encoded
  rem %2 = Extension to Process
 
- IF "%@PURGE_AFTER%"=="9999" GOTO :EOF
+ IF "%@PURGE_AFTER%"=="9999" EXIT /B
  CALL :SetDestFolder "%%%~1%%"
  CALL :ConvertUNC @D_FOLDER
  SET @ZIPEXT=%~2
  SET @ZIPEXT=%@ZIPEXT:+=*%
- SET @FORFILES=FORFILES -p"%@D_FOLDER%" -m*.%@ZIPEXT% -d-%@PURGE_AFTER% -c"CMD /C IF @ISDIR==FALSE ECHO @PATH\@FILE"
+ SET @FORFILES=FILEHASH --JF --OLDER %@PURGE_AFTER% -D "%@D_FOLDER%" *.%@ZIPEXT%
  SET @FILES_PRUNED=0
 
  rem -- Set Marker to Purge Destination Folder Only Once per Extension
  SET @THISDEST=%@FULL_D_FOLDER%-%~2
  SET @THISDEST=!@THISDEST:*=+!
- IF DEFINED !@THISDEST! (GOTO :EOF) ELSE (SET !@THISDEST!=TRUE)
-
- IF EXIST "%SystemRoot%\System32\FORFILES.EXE" (
-	 SET @FORFILES=%SystemRoot%\System32\FORFILES -p "%@D_FOLDER%" -m *.%@ZIPEXT% -d -%@PURGE_AFTER% -c "CMD /C IF @ISDIR==FALSE ECHO @PATH"
- )
+ IF DEFINED !@THISDEST! (EXIT /B) ELSE (SET !@THISDEST!=TRUE)
 
  rem -- Generate Diagnostics Logging
  IF /I "%@DIAGMODE%"=="TRUE" (
@@ -814,7 +816,7 @@
 	 ECHO:
  ) >>"%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -840,7 +842,7 @@
  )
  ECHO:
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -864,7 +866,7 @@
 	 IF "%~2"=="" (SET @FREESPACE=!@ACCESSIBLE!) ELSE (SET %~2=!@ACCESSIBLE!)
  )
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -886,7 +888,7 @@
 
  IF /I "%@DIAGMODE%"=="TRUE" (TYPE "%@TEMPLOG%" >>"%@DEBUGLOG%") ELSE (TYPE "%@TEMPLOG%")
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -934,7 +936,7 @@
 
  SET @FREEDISK=%@VALUE% %@UNIT% free
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -946,7 +948,7 @@
 
  SET %~1=!DATE! at !TIME: =0!
  FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET %~1#="%%~d"
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -956,11 +958,11 @@
 :ReplaceParentheses
  rem %1 = Variable Name
 
- IF NOT DEFINED %1 GOTO :EOF
+ IF NOT DEFINED %1 EXIT /B
  SET %~1=!%~1:(=[!
  SET %~1=!%~1:)=]!
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -970,13 +972,13 @@
 :FixDirectoryPath
  rem %1 = Folder Variable
 
- IF NOT DEFINED %1 GOTO :EOF
+ IF NOT DEFINED %1 EXIT /B
  IF "!%~1:~-1!"=="\" (
 	 SET %~1=!%~1:~0,-1!
 	 GOTO :FixDirectoryPath
  )
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -996,7 +998,7 @@
  SET @V4=%5& IF DEFINED @V4 SET @V4=!@V4:"=!
  FOR /F "TOKENS=3" %%i IN ('CHECKPARAMS -o --min "!@V3!" --max "!@V4!" -n "!@V1!" "!@V2!" 2^>NUL') DO SET %~1=%%i
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1007,14 +1009,14 @@
  rem %1 = Parameters to Search For
  rem %2 = Variable to Set
 
- SET @OK=& IF "%~1"=="" GOTO :EOF
+ SET @OK=& IF "%~1"=="" EXIT /B
  FOR /F "TOKENS=2-3*" %%v IN ('CHECKPARAMS -q -a -c "%~1" -s %@ALL_PARAMS% 2^>NUL') DO IF /I "%%~v"=="TRUE" (
 	 SET @OK=T
 	 SET @REQ=T
 	 IF NOT "%~2"=="" SET %~2=%%~x
  )
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1044,7 +1046,7 @@
 	 )
  )
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1059,12 +1061,12 @@
  ECHO:
  ECHO For more details, see: %@TEMPLOG%
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Update Job Execution Stats
- rem === Updated On: 12 Apr 2024 / 07 Apr 2024 / 15 Oct 2019 / 09 Mar 2019
+ rem === Updated On: 30 Sep 2025 / 12 Apr 2024 / 07 Apr 2024 / 15 Oct 2019
  rem ==========================================================================
 :SaveJobHistory
  rem %* = Optional Message to include in Job History
@@ -1083,12 +1085,12 @@
 
  %@VERBOSE_OFF%
  TYPE NUL >>"%@TIMINGS%"
- FOR /F %%c IN ('TYPE "%@TIMINGS%" ^| FIND /C "/"') DO SET @ROWCOUNT=%%c
+ FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q') DO SET @ROWCOUNT=%%c
  IF !@ROWCOUNT! GTR %@MAXROWS% (
 	 SET @TRUNCATED= // TRUNCATED
 	 SET @OLDTIME=!@TIMINGS:TXT=%@FILESTAMP%!
 	 COPY "%@TIMINGS%" "!@OLDTIME!" /V /Y >CON
-	 TAIL -%@MINROWS% "!@OLDTIME!" >"%@TIMINGS%"
+	 READABLE "!@OLDTIME!" --ST -%@MINROWS% -O "%@TIMINGS%"
 	 ECHO:
 	 CALL :ForwardToSyslog "5" %@INFO%: Job History Logfile Truncated -- [!DATE! at !TIME!]
  ) >>"%@LOGFILE%" 2>>"%@ERRORS%"
@@ -1096,7 +1098,7 @@
  CALL :ForwardToSyslog "6" %@JOBHISTORY%!@RUNMODE!!@TRUNCATED! >>"%@TIMINGS%" 2>>"%@ERRORS%"
  %@VERBOSE_ON%
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1109,14 +1111,14 @@
 
  SET @S_MSG=%*& IF "%~2"=="" SET @S_MSG=%1 - This is a Syslog Test Message from %@VER%
  SET @SEV=6
- FOR %%a IN (0 EMERGENCY) DO IF /I "%~1"=="%%~a" SET @SEV=0
- FOR %%a IN (1 ALERT) DO IF /I "%~1"=="%%~a" SET @SEV=1
- FOR %%a IN (2 CRITICAL) DO IF /I "%~1"=="%%~a" SET @SEV=2
- FOR %%a IN (3 ERROR) DO IF /I "%~1"=="%%~a" SET @SEV=3
- FOR %%a IN (4 WARNING) DO IF /I "%~1"=="%%~a" SET @SEV=4
- FOR %%a IN (5 NOTICE) DO IF /I "%~1"=="%%~a" SET @SEV=5
+ FOR %%a IN (0 EMERGENCY) DO   IF /I "%~1"=="%%~a" SET @SEV=0
+ FOR %%a IN (1 ALERT) DO       IF /I "%~1"=="%%~a" SET @SEV=1
+ FOR %%a IN (2 CRITICAL) DO    IF /I "%~1"=="%%~a" SET @SEV=2
+ FOR %%a IN (3 ERROR) DO       IF /I "%~1"=="%%~a" SET @SEV=3
+ FOR %%a IN (4 WARNING) DO     IF /I "%~1"=="%%~a" SET @SEV=4
+ FOR %%a IN (5 NOTICE) DO      IF /I "%~1"=="%%~a" SET @SEV=5
  FOR %%a IN (6 INFORMATION) DO IF /I "%~1"=="%%~a" SET @SEV=6
- FOR %%a IN (7 DEBUG) DO IF /I "%~1"=="%%~a" SET @SEV=7
+ FOR %%a IN (7 DEBUG) DO       IF /I "%~1"=="%%~a" SET @SEV=7
 
  %@VERBOSE_OFF%
  CALL :Prepare4Syslog %@S_MSG%
@@ -1138,7 +1140,7 @@
  )
  %@VERBOSE_ON%
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1161,7 +1163,7 @@
  SET @S_MSG2=!@S_MSG:\=\x5B!
  SET @S_MSG2=!@S_MSG2:"=\x22!
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1172,43 +1174,44 @@
  rem %1 = Standard Search Criteria
  rem %2 = Advanced Search Criteria
 
- IF "%~3"=="$$" (SET "@R=") ELSE (SET "@R=/R")
+ IF "%~3"=="$$" (SET @R=) ELSE (SET @R=/R)
 
- SET "@CHK=%2"
+ SET @CHK=%2
  IF DEFINED @CHK (
 	 %@CHK_SCHED% 2>NUL | FIND /I "%~1" | FINDSTR /I %@R% /C:%2 >NUL
  ) ELSE (
 	 %@CHK_SCHED% 2>NUL | FIND /I "%~1" >NUL
  )
 
- IF NOT ERRORLEVEL 1 GOTO :EOF
+ IF NOT ERRORLEVEL 1 EXIT /B
 	 %@SET_SCHED%
-	 IF NOT DEFINED @JOBTYPE SET "@JOBTYPE= // SCHEDULED JOB CHANGED"
+	 IF NOT DEFINED @JOBTYPE SET @JOBTYPE= // SCHEDULED JOB CHANGED
 
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
- IF NOT DEFINED @DATEFMT SET "@DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz""
- SET "@SCRIPTSTATUS=%~1" & IF "%~1"=="" SET "@SCRIPTSTATUS=RUNNING"
- IF NOT "%~2"=="" (SET "@VER=%~nx0 %~2" & SET "@VERSION=%~2")
+ IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
+ SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
+ IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
+ IF NOT "%~3"=="" (SET @VER=%~nx0 %~2 %~3& SET @VERSION=%~2 %~3)
  IF /I "%~1"=="STARTED" CALL :GetTime @SCRIPT_BEG
  IF /I "%~1"=="FINISHED" (
-	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET "@CHCP_STATUS= {Restoring Code Page:%%C}"
+	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET @CHCP_STATUS= {Restoring Code Page:%%C}
 	 IF DEFINED @END_DEBUG_MODE %@END_DEBUG_MODE:"=%
 	 TITLE %@CUSTOM_TITLE% [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
 	 DATEINFO -t %@SCRIPT_BEG#% -e "hr:min:sec.ms" -o "\n*** DURATION: " 2>NUL
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -1226,7 +1229,7 @@
  ECHO CMD SYNTAX:
  ECHO -----------
  ECHO  %~n0  ^<name_of_archive_job^>  [OPTIONS]
- ECHO  %~n0  [-h^|-?^|-h2^|-??^|#]
+ ECHO  %~n0  -h^|-?^|-h2^|-??^|#
  ECHO:
  IF DEFINED @MOVE_AFTER IF DEFINED @PURGE_AFTER (
 	 ECHO  * Number of days before local archives are moved .....: %@MOVE_AFTER%
@@ -1296,4 +1299,4 @@
 	 FOR /F "TOKENS=3*" %%B IN ('SCHTASKS ^| FIND /I "Move Archives -"') DO ECHO   %%C
  )
  CALL :ShowStatus "FINISHED"
-             
+                                                                                     

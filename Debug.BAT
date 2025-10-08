@@ -6,13 +6,13 @@
  rem Created On: 16 Feb 2003
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 02 Feb 2025 / 10 May 2024 / 30 Mar 2024 / 16 Oct 2023
+ rem Updated On: 14 Aug 2025 / 02 Feb 2025 / 10 May 2024 / 30 Mar 2024
  rem         By: Andrew S. Baker
  rem
 
 
  rem ==========================================================================
- rem  OS Required: Windows 2003 or later
+ rem  OS Required: Windows 2008 or later (previously Windows 2003+)
  rem
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
@@ -148,22 +148,22 @@
  :::  to get around the constant process crashes of COMPINFO;
  :::
  :::
- :::  ADDITIONAL SCRIPTING TOOLS/INFO:
+ :::  SCRIPTING SYNTAX RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://www.BrainWaveCC.com/knowledge-base/scripting-and-automation-options-for-windows/
- :::  https://www.BrainWaveCC.com/knowledge-base/must-have-utilities-for-windows-usersadmins/
+ :::  https://ss64.com/ .......... CMD and Powershell syntax
+ :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
  :::  -------------------------------------------------------------------------
 
 
  rem ==========================================================================
  rem === Generate Filtered CMD Title
- rem === Updated On: 30 Nov 2020 / 15 May 2018
+ rem === Updated On: 14 Aug 2025 / 30 Nov 2020 / 15 May 2018
  rem ==========================================================================
 :DisplayTitle
- SET @TTT= %*
- SET @TTT=%@TTT:/?={HELP}%
+ SET "@TTT=%* "
+ SET "@TTT=%@TTT:/?={HELP}%"
  TITLE [%USERDOMAIN%\%USERNAME%] - %~f0 %@TTT% >NUL 2>NUL
- SET @TTT=
+ SET "@TTT="
 
 
  rem ==========================================================================
@@ -171,7 +171,7 @@
  rem === Updated On: 01 Feb 2025 / 10 May 2024 / 30 Mar 2024 / 30 Nov 2020
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.2.0.2320
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.2.0.2320 c
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -420,7 +420,7 @@
 
  SET %~1=!DATE! at !TIME: =0!
  FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET %~1#="%%~d"
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -445,7 +445,7 @@
 	 ECHO:
  ) >>"%~2" 2>>"%@ERRORLOG%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -460,11 +460,11 @@
  rem %5 = Filtering Criteria of Command/Utility
 
  rem -- Exit Subroutine If Insufficient Parameters
- IF "%~5"=="" GOTO :EOF
+ IF "%~5"=="" EXIT /B
 
  rem -- Exit Subroutine If Executable Does Not Exist
  FINDFILES --rc -f "%~3"
- IF ERRORLEVEL 64 GOTO :EOF
+ IF ERRORLEVEL 64 EXIT /B
 
  IF /I "%~1"=="TRUE" (SET @MARK=***) ELSE (SET @MARK=   )
  ECHO  %TIME:~0,8%- %@MARK% %~3 %4 ^| FIND /I "%~5"
@@ -478,7 +478,7 @@
 	 ECHO:
  ) >>"%~2" 2>>"%@ERRORLOG%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -508,7 +508,7 @@
 	 IF EXIST "%@TEMPLOG%" DEL "%@TEMPLOG%" >NUL
  ) >>"%~2" 2>>"%@ERRORLOG%"
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -520,15 +520,15 @@
  rem %2  = Variable for storing File Size
  rem %3  = Variable for storing Disk Free Space
 
- IF NOT EXIST "%~1" GOTO :EOF
- IF "%~2"=="" GOTO :EOF
- IF "%~3"=="" GOTO :EOF
+ IF NOT EXIST "%~1" EXIT /B
+ IF "%~2"=="" EXIT /B
+ IF "%~3"=="" EXIT /B
 
  FOR /F %%S IN ('DIR /B /S "%~1"') DO SET %~2=%%~zS
  FOR /F "TOKENS=3 DELIMS=) " %%F IN ('DIR "%~1" ^| FIND " bytes free"') DO SET "@FS=%%F "
  SET %~3=!@FS:,=!
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -548,29 +548,30 @@
  ECHO:
  ECHO Commands marked with *** can take several minutes to run by themselves...
  ECHO:
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
- IF NOT DEFINED @DATEFMT SET "@DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz""
- SET "@SCRIPTSTATUS=%~1" & IF "%~1"=="" SET "@SCRIPTSTATUS=RUNNING"
- IF NOT "%~2"=="" (SET "@VER=%~nx0 %~2" & SET "@VERSION=%~2")
+ IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
+ SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
+ IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
+ IF NOT "%~3"=="" (SET @VER=%~nx0 %~2 %~3& SET @VERSION=%~2 %~3)
  IF /I "%~1"=="STARTED" CALL :GetTime @SCRIPT_BEG
  IF /I "%~1"=="FINISHED" (
-	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET "@CHCP_STATUS= {Restoring Code Page:%%C}"
+	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET @CHCP_STATUS= {Restoring Code Page:%%C}
 	 IF DEFINED @END_DEBUG_MODE %@END_DEBUG_MODE:"=%
 	 TITLE %@CUSTOM_TITLE% [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
 	 DATEINFO -t %@SCRIPT_BEG#% -e "hr:min:sec.ms" -o "\n*** DURATION: " 2>NUL
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -588,7 +589,7 @@
  ECHO CMD SYNTAX:
  ECHO -----------
  ECHO  %~n0  {no parameters required}
- ECHO  %~n0  [-h^|-?^|-h2^|-??]
+ ECHO  %~n0  -h^|-?^|-h2^|-??
  ECHO:
 
  IF ERRORLEVEL 8 IF NOT ERRORLEVEL 16 (
@@ -606,4 +607,4 @@
 	 ECHO  * Options are case-insensitive, and can be prefaced by "-" or "/".
  )
  CALL :ShowStatus "FINISHED"
-                                                                             
+                                                     

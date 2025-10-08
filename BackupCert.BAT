@@ -1,10 +1,10 @@
 @ECHO OFF
  rem ==========================================================================
- rem === Backup AD Group Policy Info using the GPMC command line console
+ rem === Backup AD Certificate Server
  rem ==========================================================================
  rem
- rem Created On: 25 Mar 2005
- rem         By: Saulo Nunez
+ rem Created On: 08 Mar 2021
+ rem         By: Andrew S. Baker
  rem
  rem Updated On: 14 Aug 2025 / 03 Sep 2024 / 28 Jul 2024 / 10 May 2024
  rem         By: Andrew S. Baker
@@ -17,10 +17,6 @@
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
  rem
- rem    GPMGMT.DLL ............. https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/group-policy/group-policy-management-console
- rem    BackupAllGPOs.wsf ...... https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/group-policy/group-policy-management-console
- rem    Lib_CommonGPMCFunctions. https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/group-policy/group-policy-management-console
- rem
  rem  Input Files Used By Script (stored in %SystemDrive%\Scripts\Bat\Input):
  rem    CustomVariables.TXT .... Centralized Configuration Settings for Scripts
  rem
@@ -28,74 +24,21 @@
  rem    SetDrive.BAT ........... Set Global Variables for this Environment
  rem ==========================================================================
 
- :::  This script makes use of the GPMGMT.DLL file from the Group Policy
- :::  Management Console (GPMC) to script the backup of your GPOs in the domain
- :::  to specific folders under the Backups tree (\Storage\Backups\GPOs)
- :::
- :::  The GPMC files are found in (\Program Files\GPMC) by default once you
- :::  install the GPMC.
+ :::  This script makes use of the CERTUTIL and REG.exe to backup an enterprise
+ :::  Certificate Authority
  :::
  :::  This script will also delete all but 30 most recent backups that have been
  :::  created.  To adjust the default, change the @KEEP_HISTORICAL variable.
  :::
- :::  (Nov 2010) Changed the default log extension of the reports from .LOG to
- :::  .TXT so that the reports that are mailed to mobile devices can be read
- :::  automatically. (Not too many devices can natively handle .LOG files)
+ :::  (Mar 2021) v1.0 -- Initial Release;
  :::
- :::  (Dec 2012) Made it possible for the scheduled tasks to be stored in their
- :::  own folder, rather than the default root folder of the Task Scheduler.
+ :::  (Jan 2022) v1.1 -- Modify the @NAMECHK verification to include \ prefix;
  :::
- :::  (Oct 2013) v1.10 -- It is now possible to provide additional script
- :::  settings via the CustomVariables.TXT input file.  This can be a useful
- :::  way of changing the default user account for the schedule job, as an
- :::  example.  These settings are processed after every internal setting, but
- :::  before the commandline parameters are evaluated.
- :::
- :::  (Nov 2017) v2.0 -- Reduced the default retension period from 30 to 10,
- :::  and added validation to ensure that it is always a legitmate value if
- :::  set via the CustomVariables.TXT input file.
- :::
- :::  (May 2018) v3.0 -- Changed the HELP routine to use FINDSTR;
- :::  -- Added new Filtered CMD Title and Syntax Help processing routines;
- :::  -- Filtered Out SCHTASKS Error Messages;
- :::  -- Changed Script Documentation to www.BrainWaveCC.com;
- :::
- :::  (Jul 2018) v3.1 -- The new BrainWave CheckParams utility is now used to
- :::  check for the /H and /? parameters, replacing the use of FIND/FINDSTR;
- :::
- :::  (Aug 2018) v3.2 -- Removed AT command support;
- :::
- :::  (Oct 2018) v3.3 -- Corrected and expanded the DEBUG logging routine;
- :::
- :::  (Mar 2019) v3.4 -- Enabled Code Page 1252 Support;
- :::
- :::  (Oct 2019) v3.5 -- Updated :ShowStatus routine to reset TITLE/CodePage;
- :::
- :::  (Jan 2020) v3.6 -- Use CHECKPARAMS to evaluate parameters besides /? /H;
- :::  -- Added a routine for validating integer parameters;
- :::
- :::  (May 2020) v3.7 -- Migrated :DebugMode routine to SetDrive.BAT;
- :::
- :::  (Nov 2020) v3.8 -- Provided extended HELP options (--?? / --H2);
- :::  -- New CHECKPARAMS syntax for processing extended help options;
- :::
- :::  (Jan 2022) v3.9 -- Modify the @NAMECHK verification to include \ prefix;
- :::
- :::  (Oct 2023) v3.10 -- Change the way the @SCRIPT_BEG# variable is
+ :::  (Oct 2023) v1.2 -- Change the way the @SCRIPT_BEG# variable is
  :::  calculated in various subroutines by using DATEINFO instead of %DATE%;
  :::
- :::  (May 2024) v4.0 -- Check for essential utilities with FINDFILES;
+ :::  (May 2024) v1.3 -- Check for essential utilities with FINDFILES;
  :::  -- Add logging when (un)scheduling jobs;
- :::
- ::: --------
- :::  NOTES:
- ::: --------
- :::  * (January 2005): There is a weird bug in Windows 2003 SP1 x64 where
- :::    the existence of a 'D' in the beginning of a task name is interpreted
- :::    as a special character by SCHTASKS.EXE and will generate an error
- :::    during creation of the job. Lowercase 'd' works just fine, though. I
- :::    haven't tested to see if the same problem shows up in 64-bit XP, but
- :::    I suspect that it will as they use the same codebase.
  :::
  :::
  :::  WINDOWS SHELL SCRIPTING RESOURCES:
@@ -107,7 +50,7 @@
 
  rem ==========================================================================
  rem === Generate Filtered CMD Title
- rem === Updated On: 14 Aug 2025 / 30 Nov 2020 / 16 May 2018
+ rem === Updated On: 14 Aug 2025 / 08 Mar 2021
  rem ==========================================================================
 :DisplayTitle
  SET "@TTT=%* "
@@ -118,10 +61,10 @@
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 10 May 2024 / 30 Nov 2020 / 26 May 2020
+ rem === Updated On: 10 May 2024 / 08 Mar 2021
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v4.0.0.401 c
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v1.3.0.071 c
 
  rem -- Backup Archives to Keep (# of weekly backups)
  SET @KEEP_HISTORICAL=10
@@ -131,30 +74,32 @@
  IF ERRORLEVEL 1 IF NOT ERRORLEVEL 16 GOTO :HelpMessage
 
  rem -- Check for Essential Utilities and/or Scripts
- SET #BWUTILS="%~dp0SetDrive.BAT"
- SET #MSUTILS=FINDSTR.EXE SCHTASKS.EXE CSCRIPT.EXE %~dp0BackupAllGPOs.wsf
- SET #O_UTILS=
- FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% %#O_UTILS%
- IF ERRORLEVEL 64 (CALL :SaveJobHistory ABORTED - MISSING CRITICAL FILES & GOTO :ExitBatch)
+ FINDFILES --bw -w -m -f "%~dp0SetDrive.BAT" FINDSTR.EXE SCHTASKS.EXE CERTUTIL.EXE REG.EXE
+ IF ERRORLEVEL 64 GOTO :ExitBatch
 
  rem -- Job Scheduling Variables
- SET @JOBNAME=Weekly GPO Backup
+ SET @JOBNAME=Weekly AD CA Backup
  SET @JOBUSER=SYSTEM
  SET @JOBFREQ=WEEKLY
- SET @JOBTIME=04:15:00
- SET @JOBDATE=/D SUN
+ SET @JOBTIME=03:55:00
+ SET @JOBDATE=/D SAT
  SET @JOBPATH=%~f0
  SET @JOBTYPE=
+
+ rem -- Cert Specific Info  (Override via CustomVariables.*.TXT)
+ SET @CERT_NAME=%COMPUTERNAME%\MyCorp-Enterprise-CA
 
  rem -- Set Global Variables from Centralized Script
  CALL "%~dp0SetDrive.BAT" "%~n0"
 
+
  rem -- Main Variables
+ SET @NOSCHED=TRUE
  SET @UPDATESCHED=FALSE
- SET @DOMAINS=%*& IF "%~1"=="" SET @DOMAINS=%USERDNSDOMAIN%
- SET @ROOTDIR=%@STORAGE%\Backups\GPOs
+ SET @CA_REGKEY=HKLM\System\CurrentControlSet\Services\CertSVc\Configuration
+ SET @ROOTDIR=%@BACKUPS%\CA
  SET @LOGPATH=%@STORAGE%\Logs\AD
- SET @LOGFILE=%@LOGPATH%\GPO.%@FILESTAMP%
+ SET @LOGFILE=%@LOGPATH%\CA.%@FILESTAMP%
 
  rem -- Ensure Valid Retention Time
  CALL :GetInteger @KEEP_HISTORICAL "%@KEEP_HISTORICAL%" 10
@@ -170,7 +115,7 @@
 
  rem ==========================================================================
  rem === Create Scheduled Job using SCHTASKS (XP/2003/Vista/+)
- rem === Updated On: 10 May 2024 / 22 Jan 2022 / 09 Mar 2019
+ rem === Updated On: 10 May 2024 / 22 Jan 2022 / 08 Mar 2021
  rem ==========================================================================
 :ScheduleJobs
  IF /I "%@NOSCHED%"=="TRUE" IF /I NOT "%@UNSCHED%"=="TRUE" (
@@ -213,53 +158,58 @@
 
 
  rem ==========================================================================
- rem === Backup All GPOs for Local DNS Domain(s)
- rem === Updated On: 05 Feb 2015 / 20 Dec 2011
+ rem === Backup AD Cert Authority (CA)
+ rem === Updated On: 08 Mar 2021
  rem ==========================================================================
-:BackupGPOs
- PUSHD "%SystemDrive%\Scripts\Utils"
+:BackupCA
  IF NOT EXIST "%@LOGPATH%" MD "%@LOGPATH%"
 
- ECHO %@TIMESTAMP% - Begin GPO Backups... [%@VER%] >>"%@LOGFILE%"
- ECHO Begin Backup of All GPOs... [%@VER%]
+ ECHO %@TIMESTAMP% - Begin AD CA Backups... [%@VER%] >>"%@LOGFILE%"
+ ECHO Begin Backup of Certificate Authority Database... [%@VER%]
 
- FOR %%D IN (%@DOMAINS%) DO (
-	 SET @DATADIR=%@ROOTDIR%\%%~D\%@TODAY_EXP%.%@NOW%
-	 SET @LOGFILE=%@LOGPATH%\GPO-%%D.%@FILESTAMP%
+ ( rem -- Write to Log
+	CERTUTIL -f -v -backupDB %@ROOTDIR%\%@DIRSTAMP_R%
+	CERTUTIL -f -v -config %@CERT_NAME% -backupKey %@ROOTDIR%\%@DIRSTAMP_R%
+	REG SAVE  "%@CA_REGKEY%" %@ROOTDIR%\%@DIRSTAMP_R%\CurrentRegistry.Backup
+	REG QUERY "%@CA_REGKEY%" /S
+ ) >>"%@LOGFILE%"
 
-	 IF NOT EXIST "!@DATADIR!" MD "!@DATADIR!"
-	 CSCRIPT %~dp0BackupAllGPOs.wsf !@DATADIR! /Comment:"Weekly GPO Backup" /Domain:%%~D >>"!@LOGFILE!"
+ ECHO Finished Backup of AD CA!
+ %@PAUSE_IF_DEBUG%
 
-	 ( rem -- Write to Log
-		 ECHO:
-		 ECHO:
-		 ECHO Archiving Old GPO Backups [Keep only the last %@KEEP_HISTORICAL% copies]
 
-		 FOR /F "SKIP=%@KEEP_HISTORICAL% TOKENS=*" %%V IN ('DIR "%@ROOTDIR%\%%~D" /AD /O-N /B') DO (
-			 ECHO  - Deleting "%%V" from GPO Backup Folder "%%~D"
-			 RD /S /Q "%@ROOTDIR%\%%~D\%%V"
-		 )
-		 ECHO:
-	 ) >>"%@LOGFILE%"
- )
+ rem ==========================================================================
+ rem === Keep Only The Last %@KEEP_HISTORICAL% CA Backups (Default=30)
+ rem === Updated On: 08 Mar 2021
+ rem ==========================================================================
+:PruneOldBackups
+ ( rem -- Write to Log
+	 ECHO:
+	 ECHO:
+	 ECHO Archiving Old CA Backups [Keep only the last %@KEEP_HISTORICAL% copies]
 
- ECHO Finished Backup of All GPOs!
+	 FOR /F "SKIP=%@KEEP_HISTORICAL% TOKENS=*" %%V IN ('DIR "%@ROOTDIR%" /AD /O-N /B') DO (
+		 ECHO  - Deleting Obsolete CA Backup Folder: "%%V"
+		 RD /S /Q "%@ROOTDIR%\%%V"
+	 )
+	 ECHO:
+ ) >>"%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
 
 
  rem ==========================================================================
  rem === Generate Final Job Report
- rem === Updated On: 25 Feb 2015
+ rem === Updated On: 08 Mar 2021
  rem ==========================================================================
 :FinalReport
- POPD
- FOR %%D IN (%@DOMAINS%) DO TYPE "%@LOGPATH%\GPO-%%~D.%@FILESTAMP%"
- DIR "%@LOGPATH%"
+ IF EXIST "%@LOGFILE%" TYPE "%@LOGFILE%"
+ DIR /OGD "%@LOGPATH%"
+ DIR /OGD /S "%@ROOTDIR%"
 
 
  rem ==========================================================================
  rem === Reset Environment Variables and Exit Batch File
- rem === Updated On: 03 Jul 2024 / 04 Oct 2019 / 28 Feb 2019
+ rem === Updated On: 03 Jul 2024 / 08 Mar 2021
  rem ==========================================================================
 :ExitBatch
  CALL :ShowStatus "FINISHED"
@@ -269,7 +219,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Determine if Parameter is a Valid Integer, Or Set to Zero
- rem === Updated On: 21 Jan 2020
+ rem === Updated On: 08 Mar 2021
  rem ==========================================================================
 :GetInteger
  rem %1 = Variable to Store Integer
@@ -289,7 +239,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Use CheckParams.exe to Capture Selected Parameters
- rem === Updated On: 21 Jan 2020
+ rem === Updated On: 08 Mar 2021
  rem ==========================================================================
 :GetParams
  rem %1 = Parameters to Search For
@@ -319,7 +269,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Check if Scheduled Job is Already Running
- rem === Updated On: 03 Sep 2024 / 16 May 2018 / 05 Feb 2015
+ rem === Updated On: 03 Sep 2024 / 08 Mar 2021
  rem ==========================================================================
 :CheckSched
  rem %1 = Standard Search Criteria
@@ -344,7 +294,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 08 Mar 2021
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
@@ -367,10 +317,10 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Display Syntax Help if Required/Requested
- rem === Updated On: 30 Nov 2020 / 16 May 2018
+ rem === Updated On: 08 Mar 2021
  rem ==========================================================================
 :HelpMessage
- ECHO Backup AD Group Policy Info using the GPMC command line console
+ ECHO Backup AD Certificate Server
  ECHO:
  ECHO ----------
  ECHO YOU TYPED:  %0 %*
@@ -415,4 +365,4 @@
 	 ECHO  * Options are case-insensitive, and can be prefaced by "-" or "/".
  )
  CALL :ShowStatus "FINISHED"
-                                                                               
+                                                                                               

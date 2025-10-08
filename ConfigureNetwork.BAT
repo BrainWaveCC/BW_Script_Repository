@@ -1,18 +1,18 @@
-@REM - ASB (18 Nov 2010 // 03 Oct 2024 / 28 Jul 2024 / 14 Jul 2024 / 10 May 2024 / 02 May 2024 / 04 Apr 2024 / 12 Jan 2024): Configure Network Settings via CustomVariables.TXT and IPConfig.TXT
+@REM - ASB (18 Nov 2010 // 14 Aug 2025 / 03 Oct 2024 / 28 Jul 2024 / 14 Jul 2024 / 10 May 2024 / 02 May 2024 / 04 Apr 2024 / 12 Jan 2024): Configure Network Settings via CustomVariables.TXT and IPConfig.TXT
 @ECHO OFF
 
 
  rem -- Generate Filtered CMD Title
 :DisplayTitle
- SET @TTT= %*
- SET @TTT=%@TTT:/?={HELP}%
+ SET "@TTT=%* "
+ SET "@TTT=%@TTT:/?={HELP}%"
  TITLE [%USERDOMAIN%\%USERNAME%] - %~f0 %@TTT% >NUL 2>NUL
- SET @TTT=
+ SET "@TTT="
 
 
  rem -- Initialize Environment Variables
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.4.0.540
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.4.0.540 b
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -262,12 +262,12 @@
  rem %1 = Variable
  rem %2 = Value to be Set
 
- IF "%~2"=="*" GOTO :EOF
+ IF "%~2"=="*" EXIT /B
  SET %1=%~2
  IF DEFINED %1 SET %1=!%1: =!
  IF DEFINED %1 SET %1=!%1:	=!
  IF DEFINED %1 SET %1=!%1:+= !
- GOTO :EOF
+ EXIT /B
 
 
  rem -- SUBROUTINE: Use CheckParams.exe to Capture Selected Parameters
@@ -275,25 +275,25 @@
  rem %1 = Parameters to Search For
  rem %2 = Variable to Set
 
- SET @OK=& IF "%~1"=="" GOTO :EOF
+ SET @OK=& IF "%~1"=="" EXIT /B
  FOR /F "TOKENS=2-3*" %%v IN ('CHECKPARAMS -q -a -c "%~1" -s %@ALL_PARAMS% 2^>NUL') DO IF /I "%%~v"=="TRUE" (
 	 SET @OK=T
 	 SET @REQ=T
 	 IF NOT "%~2"=="" SET %~2=%%~x
  )
- GOTO :EOF
+ EXIT /B
 
 
  rem -- SUBROUTINE: Show Read-Only Mode Message, If Appropriate
 :ShowTestMessage
  rem %1 = Message Verb
 
- IF NOT DEFINED @ECHO GOTO :EOF
+ IF NOT DEFINED @ECHO EXIT /B
  SET @VERB=%~1
  IF NOT DEFINED @VERB SET @VERB=WILL BE
  NOW \s \n\**** DISPLAY-ONLY MODE ENABLED: NO IP ADDRESS CHANGES %@VERB% MADE \n\*
  ECHO 
- GOTO :EOF
+ EXIT /B
 
 
  rem -- SUBROUTINE: Set/Display Script Version and Execution Status (STARTED/FINISHED)
@@ -301,18 +301,19 @@
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
- IF NOT DEFINED @DATEFMT SET "@DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz""
- SET "@SCRIPTSTATUS=%~1" & IF "%~1"=="" SET "@SCRIPTSTATUS=RUNNING"
- IF NOT "%~2"=="" (SET "@VER=%~nx0 %~2" & SET "@VERSION=%~2")
- IF /I "%~1"=="STARTED" FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET "@SCRIPT_BEG#="%%~d""
+ IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
+ SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
+ IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
+ IF NOT "%~3"=="" (SET @VER=%~nx0 %~2 %~3& SET @VERSION=%~2 %~3)
+ IF /I "%~1"=="STARTED" FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET @SCRIPT_BEG#="%%~d"
  IF /I "%~1"=="FINISHED" (
-	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET "@CHCP_STATUS= {Restoring Code Page:%%C}"
+	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET @CHCP_STATUS= {Restoring Code Page:%%C}
 	 IF DEFINED @END_DEBUG_MODE %@END_DEBUG_MODE:"=%
-	 TITLE Command Prompt [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
+	 TITLE %@CUSTOM_TITLE% [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
 	 DATEINFO -t %@SCRIPT_BEG#% -e "hr:min:sec.ms" -o "\n*** DURATION: " 2>NUL
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
- GOTO :EOF
+ EXIT /B
 
 
  rem -- SUBROUTINE: Process Ethernet Adapter Names
@@ -327,7 +328,7 @@
  ) ELSE (
 	 ECHO  -- !@VNIC!
  )
- GOTO :EOF
+ EXIT /B
 
 
  rem -- SUBROUTINE: Display Syntax Help if Required/Requested
@@ -347,7 +348,7 @@
  ECHO  %~n0  [-TZ:^<"Time Zone"^>]
  ECHO  %~n0  [-MATCH:^<"Alternate System Name to Match Settings from"^>]
  ECHO  %~n0  [-FILE:^<"Alternate Configuration File to Obtain Settings from"^>]
- ECHO  %~n0  [-h^|-?^|-h2^|-??]
+ ECHO  %~n0  -h^|-?^|-h2^|-??
  ECHO:
  ECHO -------------------
  ECHO OPTION DEFINITIONS:
@@ -396,4 +397,4 @@
 	 ECHO    default values ^(represented by "&"^) will be used/applied.
  )
  CALL :ShowStatus "FINISHED"
-                        
+                                                                 

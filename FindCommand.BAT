@@ -1,19 +1,19 @@
-@REM - ASB (21 Jan 2010 // 15 Jan 2024 / 16 Oct 2023 / 30 Nov 2020 / 22 Jan 2020 / 24 Dec 2019 / 09 Dec 2019 / 30 Sep 2019 / 26 Jul 2018 / 08 May 2018): Find Scripts or Utilities in the PATH
+@REM - ASB (21 Jan 2010 // 14 Aug 2025 / 15 Jan 2024 / 16 Oct 2023 / 30 Nov 2020 / 22 Jan 2020 / 24 Dec 2019 / 09 Dec 2019): Find Scripts or Utilities in the PATH
 @ECHO OFF
  CLS
 
 
  rem -- Generate Filtered CMD Title
 :DisplayTitle
- SET @TTT= %*
- SET @TTT=%@TTT:/?={HELP}%
+ SET "@TTT=%* "
+ SET "@TTT=%@TTT:/?={HELP}%"
  TITLE [%USERDOMAIN%\%USERNAME%] - %~f0 %@TTT% >NUL 2>NUL
- SET @TTT=
+ SET "@TTT="
 
 
  rem -- Initialize Environment Variables
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.4.0.340
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.4.0.340 b
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=1 -c "H HELP ?" -x "?? H2" -s %*
@@ -86,7 +86,7 @@
 		 SET %~1=!@TEMPVAR:~0,%~4!
 	 )
  )
- GOTO :EOF
+ EXIT /B
 
 
  rem -- SUBROUTINE: Set/Display Script Version and Execution Status (STARTED/FINISHED)
@@ -94,18 +94,19 @@
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
- IF NOT DEFINED @DATEFMT SET "@DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz""
- SET "@SCRIPTSTATUS=%~1" & IF "%~1"=="" SET "@SCRIPTSTATUS=RUNNING"
- IF NOT "%~2"=="" (SET "@VER=%~nx0 %~2" & SET "@VERSION=%~2")
- IF /I "%~1"=="STARTED" FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET "@SCRIPT_BEG#="%%~d""
+ IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
+ SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
+ IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
+ IF NOT "%~3"=="" (SET @VER=%~nx0 %~2 %~3& SET @VERSION=%~2 %~3)
+ IF /I "%~1"=="STARTED" FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET @SCRIPT_BEG#="%%~d"
  IF /I "%~1"=="FINISHED" (
-	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET "@CHCP_STATUS= {Restoring Code Page:%%C}"
+	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET @CHCP_STATUS= {Restoring Code Page:%%C}
 	 IF DEFINED @END_DEBUG_MODE %@END_DEBUG_MODE:"=%
-	 TITLE Command Prompt [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
+	 TITLE %@CUSTOM_TITLE% [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
 	 DATEINFO -t %@SCRIPT_BEG#% -e "hr:min:sec.ms" -o "\n*** DURATION: " 2>NUL
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
- GOTO :EOF
+ EXIT /B
 
 
  rem -- SUBROUTINE: Display Syntax Help if Required/Requested
@@ -120,7 +121,7 @@
  ECHO CMD SYNTAX:
  ECHO -----------
  ECHO  %~n0  ^<search string^>
- ECHO  %~n0  [-h^|-?^|-h2^|-??]
+ ECHO  %~n0  -h^|-?^|-h2^|-??
  ECHO:
  ECHO -------------------
  ECHO OPTION DEFINITIONS:
@@ -150,4 +151,4 @@
 	 ECHO  * Options are case-insensitive, and can be prefaced by "-" or "/".
  )
  CALL :ShowStatus "FINISHED"
-            
+                                                                                   

@@ -6,13 +6,13 @@
  rem Created On: 09 Jul 2001
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 01 Feb 2025 / 28 Jul 2024 / 09 Jun 2024 / 04 Jun 2024
+ rem Updated On: 14 Aug 2025 / 01 Feb 2025 / 28 Jul 2024 / 09 Jun 2024
  rem         By: Andrew S. Baker
  rem
 
 
  rem ==========================================================================
- rem  OS Required: Windows 2003 and later
+ rem  OS Required: Windows 2008 or later (previously Windows 2003+)
  rem
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
@@ -89,22 +89,22 @@
  :::  (Feb 2025) v5.5 -- Replaced COMPINFO with PSINFO to avoid process crashes;
  :::
  :::
- :::  ADDITIONAL SCRIPTING TOOLS/INFO:
+ :::  SCRIPTING SYNTAX RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://www.BrainWaveCC.com/knowledge-base/scripting-and-automation-options-for-windows/
- :::  https://www.BrainWaveCC.com/knowledge-base/must-have-utilities-for-windows-usersadmins/
+ :::  https://ss64.com/ .......... CMD and Powershell syntax
+ :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
  :::  -------------------------------------------------------------------------
 
 
  rem ==========================================================================
  rem === Generate Filtered CMD Title
- rem === Updated On: 30 Nov 2020 / 26 Jul 2018
+ rem === Updated On: 14 Aug 2025 / 30 Nov 2020 / 26 Jul 2018
  rem ==========================================================================
 :DisplayTitle
- SET @TTT= %*
- SET @TTT=%@TTT:/?={HELP}%
+ SET "@TTT=%* "
+ SET "@TTT=%@TTT:/?={HELP}%"
  TITLE [%USERDOMAIN%\%USERNAME%] - %~f0 %@TTT% >NUL 2>NUL
- SET @TTT=
+ SET "@TTT="
 
 
  rem ==========================================================================
@@ -112,7 +112,7 @@
  rem === Updated On: 01 Feb 2025 / 04 Jun 2024 / 10 May 2024 / 18 May 2022
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.5.0.550 a
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.5.0.550 e
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -123,7 +123,7 @@
 	 ECHO:
 	 ECHO   CMD SYNTAX: %~n0
 	 ECHO               %~n0  [-e^|--errorlogs]
-	 ECHO               %~n0  [-h^|-?]
+	 ECHO               %~n0  -h^|-?
 	 ECHO:
 	 ECHO  OPTION DEFINITIONS:
 	 ECHO    -?, -H ............ Display this help message
@@ -275,7 +275,7 @@
 	 DIR /S /A "%@FOLDER%"
  ) >>"%@LOGFILE%" 2>&1
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -292,7 +292,7 @@
 	 ECHO:
 	 ECHO *** SKIPPING %@FOLDER%" ***
 	 ECHO:
-	 GOTO :EOF
+	 EXIT /B
  ) >>"%@LOGFILE%" 2>&1
 
  IF EXIST "%@FOLDER%" (
@@ -303,7 +303,7 @@
 	 POPD
  )
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -322,7 +322,7 @@
 	 POPD
  )
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -333,8 +333,8 @@
  rem %1 = Variable to Store Data
  rem %2 = Current Temp Folder
 
- IF "%~1"=="" GOTO :EOF
- IF NOT EXIST "%~2" GOTO :EOF
+ IF "%~1"=="" EXIT /B
+ IF NOT EXIST "%~2" EXIT /B
 
  FOR /F "TOKENS=2" %%S IN ('DU -L 1 "%~2" 2^>NUL ^| FIND "Size: "') DO (
 	 SET @ZZZ=%%~S
@@ -342,7 +342,7 @@
 	 FOR /F %%C IN ('CCALC !%~1! + !@ZZZ! 2^>NUL') DO SET %~1=%%~C
  )
  %@PAUSE_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -354,7 +354,7 @@
  rem %2 = Unit of Measurement to be Used
  rem %3 = New Variable To Store Formatted Number
 
- IF "%~3"=="" GOTO :EOF
+ IF "%~3"=="" EXIT /B
                    SET @OPERAND=+ 0
  IF /I "%~2"=="KB" SET @OPERAND=/ 1024
  IF /I "%~2"=="MB" SET @OPERAND=/ 1024 / 1024
@@ -363,27 +363,28 @@
 
  FOR /F %%N IN ('CCALC %~1 %@OPERAND% -F 2^>NUL') DO SET %~3=%%~N %~2
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
- IF NOT DEFINED @DATEFMT SET "@DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz""
- SET "@SCRIPTSTATUS=%~1" & IF "%~1"=="" SET "@SCRIPTSTATUS=RUNNING"
- IF NOT "%~2"=="" (SET "@VER=%~nx0 %~2" & SET "@VERSION=%~2")
- IF /I "%~1"=="STARTED" FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET "@SCRIPT_BEG#="%%~d""
+ IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
+ SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
+ IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
+ IF NOT "%~3"=="" (SET @VER=%~nx0 %~2 %~3& SET @VERSION=%~2 %~3)
+ IF /I "%~1"=="STARTED" FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET @SCRIPT_BEG#="%%~d"
  IF /I "%~1"=="FINISHED" (
-	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET "@CHCP_STATUS= {Restoring Code Page:%%C}"
+	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET @CHCP_STATUS= {Restoring Code Page:%%C}
 	 IF DEFINED @END_DEBUG_MODE %@END_DEBUG_MODE:"=%
-	 TITLE Command Prompt [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
+	 TITLE %@CUSTOM_TITLE% [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
 	 DATEINFO -t %@SCRIPT_BEG#% -e "hr:min:sec.ms" -o "\n*** DURATION: " 2>NUL
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
- GOTO :EOF
-         
+ EXIT /B
+                                                                                     
