@@ -6,7 +6,7 @@
  rem Created On: 06 Oct 2002
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 02 Jun 2025 / 10 May 2024 / 02 May 2024 / 04 Apr 2024
+ rem Updated On: 29 Sep 2025 / 14 Aug 2025 / 02 Jun 2025 / 10 May 2024
  rem         By: Andrew S. Baker
  rem
 
@@ -85,28 +85,28 @@
 
  rem ==========================================================================
  rem === Generate Filtered CMD Title
- rem === Updated On: 30 Nov 2020 / 25 Feb 2018
+ rem === Updated On: 14 Aug 2025 / 30 Nov 2020 / 25 Feb 2018
  rem ==========================================================================
 :DisplayTitle
- SET @TTT= %*
- SET @TTT=%@TTT:/?={HELP}%
+ SET "@TTT=%* "
+ SET "@TTT=%@TTT:/?={HELP}%"
  TITLE [%USERDOMAIN%\%USERNAME%] - %~f0 %@TTT% >NUL 2>NUL
- SET @TTT=
+ SET "@TTT="
 
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 10 May 2024 / 02 May 2024 / 04 Apr 2024 / 02 Apr 2024
+ rem === Updated On: 29 Sep 2025 / 10 May 2024 / 02 May 2024 / 04 Apr 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v4.3.0.1230 b
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v4.4.0.1240
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=2 -c "H HELP ?" -x "?? H2" -s %*
  IF ERRORLEVEL 1 IF NOT ERRORLEVEL 16 GOTO :HelpMessage
 
  rem -- Check for Essential Utilities and/or Scripts
- FINDFILES --bw -w -m -f "%~dp0SetDrive.BAT" XCOPY.EXE
+ FINDFILES --bw -w -m -f "%~dp0SetDrive.BAT" READABLE.EXE XCOPY.EXE
  IF ERRORLEVEL 64 GOTO :ExitBatch
 
  rem -- Set Global Variables from Centralized Script
@@ -220,12 +220,12 @@
 
  rem ==========================================================================
  rem === Generate Final Job Report
- rem === Updated On: 30 Apr 2015 / 22 Apr 2015
+ rem === Updated On: 29 Sep 2025 / 30 Apr 2015 / 22 Apr 2015
  rem ==========================================================================
 :FinalReport
  IF EXIST %@LOGFILE% (
 	 ECHO:
-	 TYPE %@LOGFILE% | FIND /V " -- Starting F"
+	 READABLE %@LOGFILE% --SK " -- Starting F"
 	 DIR %@LOGFILE% | FIND /V " Volume "
  )
 
@@ -249,7 +249,7 @@
 
  SET %~1=!DATE! at !TIME: =0!
  FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET %~1#="%%~d"
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -259,13 +259,13 @@
 :FixDirectoryPath
  rem %1 = Folder Variable
 
- IF NOT DEFINED %1 GOTO :EOF
+ IF NOT DEFINED %1 EXIT /B
  IF "!%~1:~-1!"=="\" (
 	 SET %~1=!%~1:~0,-1!
 	 GOTO :FixDirectoryPath
  )
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
 
@@ -277,7 +277,7 @@
  rem %1 = Parameter to Evaluate
 
  SET @PREFIX=%~1
- IF NOT DEFINED @PREFIX GOTO :EOF
+ IF NOT DEFINED @PREFIX EXIT /B
  SET @PREFIX=!@PREFIX:"=!
  SET @SUFFIX=%@PREFIX:~3%& IF DEFINED @SUFFIX SET @SUFFIX=!@SUFFIX:"=!
  SET @PREFIX=%@PREFIX:~0,3%
@@ -287,7 +287,7 @@
  )
  IF DEFINED @PATTERN SET @PATTERN=!@PATTERN:+=*!
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -297,7 +297,7 @@
 :EnsureUnique
  rem %* = Command-line to Evaluate
 
- IF "%~1"=="" GOTO :EOF
+ IF "%~1"=="" EXIT /B
  SET @UNIQUE=
  FOR %%P IN (%*) DO IF NOT DEFINED $%%P (
 	 SET $%%P=YES
@@ -307,29 +307,30 @@
  rem -- CleanUp Temp Variables
  FOR %%P IN (%*) DO SET $%%P=
  %@PRINT_IF_DEBUG%
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
- IF NOT DEFINED @DATEFMT SET "@DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz""
- SET "@SCRIPTSTATUS=%~1" & IF "%~1"=="" SET "@SCRIPTSTATUS=RUNNING"
- IF NOT "%~2"=="" (SET "@VER=%~nx0 %~2" & SET "@VERSION=%~2")
+ IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
+ SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
+ IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
+ IF NOT "%~3"=="" (SET @VER=%~nx0 %~2 %~3& SET @VERSION=%~2 %~3)
  IF /I "%~1"=="STARTED" CALL :GetTime @SCRIPT_BEG
  IF /I "%~1"=="FINISHED" (
-	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET "@CHCP_STATUS= {Restoring Code Page:%%C}"
+	 IF DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %$CODEPAGE%') DO SET @CHCP_STATUS= {Restoring Code Page:%%C}
 	 IF DEFINED @END_DEBUG_MODE %@END_DEBUG_MODE:"=%
 	 TITLE %@CUSTOM_TITLE% [%USERDOMAIN%\%USERNAME%]   !@DEBUG_MODE!
 	 DATEINFO -t %@SCRIPT_BEG#% -e "hr:min:sec.ms" -o "\n*** DURATION: " 2>NUL
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -379,4 +380,4 @@
 	 ECHO    way that the FOR command processes the * character.
  )
  CALL :ShowStatus "FINISHED"
-                                        
+                                          

@@ -5,13 +5,13 @@
  rem Created On: 22 Jun 2003
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 17 Jan 2025 / 23 Sep 2024 / 11 Sep 2024 / 08 Sep 2024
+ rem Updated On: 22 Sep 2025 / 14 Aug 2025 / 09 Jul 2025 / 17 Jan 2025 / 23 Sep 2024
  rem         By: Andrew S. Baker
  rem
 
 
  rem ==========================================================================
- rem  OS Required: Windows 2003 and later (Originally: NT4+)
+ rem  OS Required: Windows 2003 or later (Originally: NT4+)
  rem
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
@@ -247,16 +247,18 @@
  :::  (Jan 2025) v19.8 -- Added the @COMPROMISED_IPs variable to track public IP
  :::  addresses related to firewall credential/configuration compromises;
  :::
+ :::  (Jul 2025) v19.9 -- Added CHCP to debug output;
  :::
- :::  ADDITIONAL SCRIPTING TOOLS/INFO:
+ :::
+ :::  SCRIPTING SYNTAX RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://www.BrainWaveCC.com/knowledge-base/scripting-and-automation-options-for-windows/
- :::  https://www.BrainWaveCC.com/knowledge-base/must-have-utilities-for-windows-usersadmins/
+ :::  https://ss64.com/ .......... CMD and Powershell syntax
+ :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
  :::  -------------------------------------------------------------------------
 
 
  rem -- Current Script Version
- SET "@VAR_VER=%~nx0 v19.8.0.1980" a
+ SET "@VAR_VER=%~nx0 v19.10.0.1995" a
 
 
  rem ==========================================================================
@@ -264,7 +266,7 @@
  rem === Updated On: 10 May 2024
  rem ==========================================================================
  FINDFILES --bw -w -m -o CHOICE.EXE FINDSTR.EXE TIMEOUT.EXE
- IF ERRORLEVEL 64 GOTO :EOF
+ IF ERRORLEVEL 64 EXIT /B
 
 
  rem ==========================================================================
@@ -284,23 +286,23 @@
 
  rem ==========================================================================
  rem === Enable Debug Mode If 'Debug' Variable is Set to TRUE/LOG/STEP/VERBOSE
- rem === Updated On: 02 Sep 2024 / 05 May 2020 / 24 Apr 2020 / 09 Dec 2018
+ rem === Updated On: 09 Jul 2025 / 02 Sep 2024 / 05 May 2020 / 24 Apr 2020
  rem ==========================================================================
 :DebugMode
- SET @VERBOSE_OFF=ECHO OFF
- SET #DEBUG=& FOR %%d IN (LOG STEP TRUE VERBOSE) DO IF /I "%Debug%"=="%%~d" SET #DEBUG=TRUE
+ SET "@VERBOSE_OFF=ECHO OFF"
+ SET "#DEBUG=" & FOR %%d IN (LOG STEP TRUE VERBOSE) DO IF /I "%Debug%"=="%%~d" SET "#DEBUG=TRUE"
  IF DEFINED #DEBUG (
-	 SET @DIAGMODE=TRUE
-	 SET @DEBUG_MODE=[DEBUG MODE ON]
-	 SET @PAUSE_IF_DEBUG=TIMEOUT 5
-	 SET @PRINT_IF_DEBUG=ECHO:^& SET @^& ECHO:^& TIMEOUT 5
-	 SET @END_DEBUG_MODE=ECHO:^& ECHO *** DEBUG MODE FINISHED ***^& ECHO:^& SET @^& TIMEOUT 30
-	 IF /I "%Debug%"=="LOG" (SET @PAUSE_IF_DEBUG=& SET @PRINT_IF_DEBUG=ECHO:^& SET @^& ECHO:)
-	 IF /I "%Debug%"=="STEP" (SET @PAUSE_IF_DEBUG=ECHO ##PAUSE##& SET @PRINT_IF_DEBUG=ECHO ##PRINT##)
-	 IF /I "%Debug%"=="VERBOSE" (SET @VERBOSE_OFF=ECHO ON) ELSE (FOR %%t IN (ON OFF) DO SET @VERBOSE_%%t=ECHO %%t)
+	 SET "@DIAGMODE=TRUE"
+	 SET "@DEBUG_MODE=[DEBUG MODE ON]"
+	 SET "@PAUSE_IF_DEBUG=TIMEOUT 5"
+	 SET "@PRINT_IF_DEBUG=ECHO:^& CHCP^& SET @^& ECHO:^& TIMEOUT 5"
+	 SET "@END_DEBUG_MODE=ECHO:^& ECHO *** DEBUG MODE FINISHED ***^& ECHO:^& SET @^& TIMEOUT 30"
+	 IF /I "%Debug%"=="LOG" (SET "@PAUSE_IF_DEBUG=" & SET "@PRINT_IF_DEBUG=ECHO:^& SET @^& ECHO:")
+	 IF /I "%Debug%"=="STEP" (SET "@PAUSE_IF_DEBUG=ECHO ##PAUSE##" & SET "@PRINT_IF_DEBUG=ECHO ##PRINT##")
+	 IF /I "%Debug%"=="VERBOSE" (SET "@VERBOSE_OFF=ECHO ON") ELSE (FOR %%t IN (ON OFF) DO SET "@VERBOSE_%%t=ECHO %%t")
 	 ECHO *** DEBUG MODE = ON ***
 	 ECHO ON
- ) ELSE ( FOR %%d IN (DEBUG_MODE PAUSE_IF_DEBUG PRINT_IF_DEBUG END_DEBUG_MODE VERBOSE_ON) DO SET @%%d=)
+ ) ELSE ( FOR %%d IN (DEBUG_MODE PAUSE_IF_DEBUG PRINT_IF_DEBUG END_DEBUG_MODE VERBOSE_ON) DO SET "@%%d=")
 
 
  rem ==========================================================================
@@ -316,7 +318,7 @@
  IF NOT DEFINED @APP_ARCH (
 	 ECHO *** COULD NOT DEFINE ESSENTIAL VARIABLES *** 
 	 TIMEOUT 60
-	 GOTO :EOF
+	 EXIT /B
  )
  SET @DIVIDER^==%@EQUALDIV%
  IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
@@ -665,9 +667,10 @@
 
  rem ==========================================================================
  rem === Exit Script (But Do NOT Reset Environment Variables)
- rem === Updated On: 21 Jul 2024 / 29 Jul 2020 / 05 May 2015
+ rem === Updated On: 22 Sep 2025 / 21 Jul 2024 / 29 Jul 2020 / 05 May 2015
  rem ==========================================================================
 :ExitBatch
+ IF NOT DEFINED @CUSTOM_TITLE SET @CUSTOM_TITLE=Command Prompt
  IF DEFINED DEBUG ECHO SETTING STORAGE FOLDER TO "%@STORAGE%" [%@VAR_VER:  = %]
  %@VERBOSE_ON%
  EXIT /B
@@ -681,10 +684,9 @@
  rem %1 = Variable Name
  rem %2 = Base Filename
 
- IF "%~2"=="" GOTO :EOF
+ IF "%~2"=="" EXIT /B
  FOR %%I IN ("%@INPUT%%~2.TXT" "%@INPUT%%~2.%COMPUTERNAME%.TXT" "%@INPUT%%~2.%@CUSTOM_CONFIG%.TXT") DO IF EXIST "%%~I" SET @%~1=%%~I
-
- GOTO :EOF
+ EXIT /B
 
 
  rem ==========================================================================
@@ -704,5 +706,5 @@
 	 IF "%@SESSION_NAME%"=="-" SET @CONSOLE_SESSION=FALSE
 	 FOR %%s IN (%@VALID_SESSIONS%) DO IF /I "%@SESSION_NAME%"=="%%~s" SET @CONSOLE_SESSION=TRUE
 	 FOR %%u IN (%@SERVICE_ACCTS%)  DO IF /I "%@SESSION_USER%"=="%%~u" SET @CONSOLE_SESSION=FALSE
- GOTO :EOF
-                                                                            
+ EXIT /B
+                                                                
