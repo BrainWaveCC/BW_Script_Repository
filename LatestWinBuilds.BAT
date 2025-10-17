@@ -6,7 +6,7 @@
  rem Created On: 15 Jun 2024
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 30 Sep 2025 / 14 Aug 2025 / 04 Oct 2024 / 26 Sep 2024
+ rem Updated On: 16 Oct 2025 / 30 Sep 2025 / 14 Aug 2025 / 04 Oct 2024 / 26 Sep 2024
  rem         By: Andrew S. Baker
  rem
 
@@ -59,11 +59,15 @@
  :::
  :::  (Sep 2025) v2.3 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
  :::
+ :::  (Oct 2025) v3.0 -- Added new links for newer versions of Windows;
+ :::  -- Added a process to generate an updated mini build list;
+ :::
  :::
  :::  SCRIPTING SYNTAX RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -80,10 +84,10 @@
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 29 Sep 2025 / 04 Oct 2024 / 26 Sep 2024 / 21 Jul 2024
+ rem === Updated On: 16 Oct 2025 / 29 Sep 2025 / 04 Oct 2024 / 26 Sep 2024 / 21 Jul 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v2.3.0.230
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.0.0.300
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -110,12 +114,14 @@
  SET @WIN11-21H2=https://support.microsoft.com/en-us/topic/windows-11-version-21h2-update-history-a19cd327-b57f-44b9-84e0-26ced7109ba9
  SET @WIN11-22H2=https://support.microsoft.com/en-us/topic/windows-11-version-22h2-update-history-ec4229c3-9c5f-4e75-9d6d-9025ab70fcce
  SET @WIN11-23H2=https://support.microsoft.com/en-us/topic/windows-11-version-23h2-update-history-59875222-b990-4bd9-932f-91a5954de434
- SET @WIN11-24H2=https://support.microsoft.com/en-us/topic/windows-11-version-23h2-update-history-59875222-b990-4bd9-932f-91a5954de434
+ SET @WIN11-24H2=https://support.microsoft.com/en-us/topic/windows-11-version-24h2-update-history-0929c747-1815-4543-8461-0160d16f15e5
+ SET @WIN11-25H2=https://support.microsoft.com/en-us/topic/windows-11-version-25h2-update-history-99c7f493-df2a-4832-bd2d-6706baa0dec0
  SET @SERVER2016=https://support.microsoft.com/en-us/topic/windows-10-and-windows-server-2016-update-history-4acfbc84-a290-1b54-536a-1c0430e9f3fd
  SET @SERVER2019=https://support.microsoft.com/en-us/topic/windows-10-and-windows-server-2019-update-history-725fc2e1-4443-6831-a5ca-51ff5cbcb059
  SET @SERVER2022=https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
  SET @SERVER23H2=https://support.microsoft.com/en-us/topic/windows-server-version-23h2-update-history-68c851ff-825a-4dbc-857b-51c5aa0ab248
- SET @MODERN_WIN=WIN10 WIN11-21H2 WIN11-22H2 WIN11-23H2 WIN11-24H2 SERVER2016 SERVER2019 SERVER2022 SERVER23H2
+ SET @SERVER2025=https://support.microsoft.com/en-us/topic/windows-server-2025-update-history-10f58da7-e57b-4a9d-9c16-9f1dcd72d7d7
+ SET @MODERN_WIN=WIN10 WIN11-21H2 WIN11-22H2 WIN11-23H2 WIN11-24H2 WIN11-25H2 SERVER2016 SERVER2019 SERVER2022 SERVER23H2 SERVER2025
  SET @SERVER2008=https://support.microsoft.com/en-us/topic/windows-server-2008-sp2-update-history-9197740a-7430-f69f-19ff-4998a4e8b25b
  SET @SERVER2008R2=https://support.microsoft.com/en-us/topic/windows-7-sp1-and-windows-server-2008-r2-sp1-update-history-720c2590-fd58-26ba-16cc-6d8f3b547599
  SET @SERVER2012=https://support.microsoft.com/en-au/topic/windows-server-2012-update-history-abfb9afd-2ebf-1c19-4224-ad86f8741edd
@@ -136,6 +142,7 @@
  CALL :GetParams "N @" & IF DEFINED @OK (SET @NOSCHED=TRUE)
  CALL :GetParams "Z #" & IF DEFINED @OK (SET @DEL_REPL=TRUE) ELSE (SET @DEL_REPL=)
  CALL :GetParams "D $" & IF DEFINED @OK (SET @NOSCHED=TRUE& SET @DEBUGMODE=TRUE)
+ CALL :GetParams "T /" & IF DEFINED @OK (SET @TESTMINI=TRUE& SET @JOBTYPE= // MINI-TEST) ELSE (SET @TESTMINI=)
  CALL :GetParams "M  " & IF DEFINED @OK (SET @MAIL=TRUE)
  CALL :GetParams "Q  " & IF DEFINED @OK (SET @MAIL=FALSE)
 
@@ -152,10 +159,9 @@
  SET @COUNT_MODERN=0
  SET @HEADER=;Official Windows Versions/Builds as of
  SET @MSG=%@HEADER% %@TODAY_EXP%
- SET @EXT_BUILD_LIST=%~dp0Input\[WindowsBuilds-Plus].TXT
+ SET @BUILD_INFO=%~dp0Input\[WindowsBuilds].TXT
  SET @LATEST_BUILDS=%~dp0Input\[WindowsBuilds-Latest].TXT
- IF DEFINED @DEBUGMODE SET @MODERN_WIN=SERVER2022 SERVER23H2
- IF /I "%@MAIL%"=="TRUE" (SET @SM=Y) ELSE (SET @SM=N)
+ SET @EXT_BUILD_LIST=%~dp0Input\[WindowsBuilds-Plus].TXT
 
  rem -- Standard Log & Output Variables
  SET @DIAGDIR=%TEMP%\%~n0\%@DIRSTAMP_R%
@@ -167,6 +173,11 @@
  SET @LOGLIST="%@LOGFILE%" "%@BUILDFILE%" "%@SUMMARY%" "%@COMPARISON%" "%@REPLACEMENT%" "%@SORTLOG%"
  SET @CLEANUP="%@TEMPLOG%" "%@TEMPFILE%"  "%@SUMMARY%" "%@COMPARISON%" "%@REPLACEMENT%" "%@SORTLOG%"
  FOR %%W IN (%@MODERN_WIN% %@LEGACY_WIN%) DO SET @%%~W_FILE=%@LOGPATH%\%@DIRSTAMP_R%\%%~W-BuildInfo.TXT
+
+ rem -- Special Settings
+ IF /I "%@MAIL%"=="TRUE" (SET @SM=Y) ELSE (SET @SM=N)
+ IF DEFINED @DEBUGMODE SET @MODERN_WIN=SERVER2022 SERVER23H2 SERVER2025
+ IF DEFINED @TESTMINI GOTO :Update-Mini-Build
 
 
  rem ==========================================================================
@@ -268,7 +279,7 @@
 
  rem ==========================================================================
  rem === Process Downloaded Files to Build New Lists
- rem === Updated On: 21 Jul 2024 / 18-19 Jul 2024 / 16 Jul 2024
+ rem === Updated On: 16 Oct 2025 / 21 Jul 2024 / 18-19 Jul 2024 / 16 Jul 2024
  rem ==========================================================================
 :GenerateNewFiles
  CALL :ShowHeader GENERATING WINDOWS BUILD LISTS
@@ -288,6 +299,32 @@
  CALL :ShowHeader GETTING LATEST DATE INFO FOR ALL WINDOWS BUILDS
  CALL :GetLatestBuildDate "%@EXT_BUILD_LIST%" "%@TEMPFILE%"
  IF EXIST "%@TEMPFILE%" ( ECHO %@MSG% & TYPE "%@TEMPFILE%" ) >"%@LATEST_BUILDS%"
+ %@PAUSE_IF_DEBUG%
+
+
+ rem ==========================================================================
+ rem === Generate an Updated Mini Build List
+ rem === Updated On: 16 Oct 2025
+ rem ==========================================================================
+:Update-Mini-Build
+ CALL :ShowHeader UPDATE MINI BUILD LIST
+ IF EXIST "%@BUILD_INFO%" (
+	 READABLE "%@BUILD_INFO%" -a -e -f "." -o "%@TEMPFILE%" 2>NUL
+	 FOR /F "TOKENS=1-3 DELIMS=. " %%B IN ('READABLE "%@BUILD_INFO%" -a -e -f "." 2^>NUL') DO SET #MINI-%%~B.%%~C.%%~D=TRUE
+ ) ELSE ( TYPE NUL >"%@TEMPFILE%" )
+
+ IF EXIST "%@LATEST_BUILDS%" FOR /F "TOKENS=2-4 DELIMS=. " %%B IN ('READABLE "%@LATEST_BUILDS%" -a -e -f "." 2^>NUL') DO IF NOT DEFINED #MINI-%%~B.%%~C.%%~D (
+	 SET #MINI-%%~B.%%~C.%%~D=TRUE
+	 ECHO %%~B.%%~C.%%~D >>"%@TEMPFILE%"
+ )
+
+ rem -- Sorting and Processing
+ IF EXIST "%@TEMPFILE%" (
+	 SORT "%@TEMPFILE%" /O "%@SORTLOG%" 2>NUL
+	 READABLE "%@SORTLOG%" -a -e -x -f "^5.;^6." >"%@TEMPFILE%"
+	 READABLE "%@SORTLOG%" -a -e -x -f "^10."   >>"%@TEMPFILE%"
+	 ( ECHO %@MSG% & TYPE "%@TEMPFILE%" )       >"%@BUILD_INFO%"
+ )
 
  rem -- Cleanup Timestamps
  CALL :ShowHeader CLEANUP TIMESTAMPS
@@ -297,7 +334,7 @@
 
  rem ==========================================================================
  rem === Display Execution Footer
- rem === Updated On: 20-21 Jul 2024 / 18 Jul 2024
+ rem === Updated On: 16 Oct 2025 / 20-21 Jul 2024 / 18 Jul 2024
  rem ==========================================================================
 :ShowFooter
  CALL :SaveJobHistory
@@ -316,8 +353,9 @@
 	 ECHO  URLs Downloaded [Modern] ..................!@MC!
 	 ECHO  New Data Processed ........................ !@UPDATED!
 	 ECHO  Send Email Notification ^(for new lists^) ... !@SM!
-	 ECHO  Size of Main Build File ...............!@MS!
-	 ECHO  Size of Summary Build File .............!@SS!
+	 ECHO  Size of Full Build File ...............!@FS!
+	 ECHO  Size of Summary Build File .............!@LS!
+	 ECHO  Size of Mini Build File ................!@MS!
 	 ECHO %@DIVIDER-%
 	 ECHO  List Processing Started On .................. %@SCRIPT_BEG%
 	 ECHO  List Processing Ended On .................... %@SCRIPT_END%
@@ -332,13 +370,13 @@
 
  rem ==========================================================================
  rem === Generate Final Report
- rem === Updated On: 21 Jul 2024 / 18 Jul 2024 / 16 Jul 2024
+ rem === Updated On: 16 Oct 2025 / 21 Jul 2024 / 18 Jul 2024 / 16 Jul 2024
  rem ==========================================================================
 :FinalReport
  CALL :ShowHeader GENERATING FINAL REPORT
  ( rem -- Write to Log
-	 FOR %%W IN (%@MODERN_WIN% %@LEGACY_WIN%) DO DIR "!@%%~W_FILE!" | FIND /I ".TXT"
-	 FOR %%F IN ("%@BUILDFILE%" "%@TEMPFILE%" "%@SORTLOG%" "%@EXT_BUILD_LIST%" "%@LATEST_BUILDS%") DO DIR "%%~F" | FIND /I ".TXT"
+	 FOR %%W IN (%@MODERN_WIN% %@LEGACY_WIN%) DO IF EXIST "%%~W" DIR "!@%%~W_FILE!" | FIND /I ".TXT"
+	 FOR %%F IN ("%@BUILDFILE%" "%@TEMPFILE%" "%@SORTLOG%" "%@BUILD_INFO%" "%@EXT_BUILD_LIST%" "%@LATEST_BUILDS%") DO IF EXIST "%%~F" DIR "%%~F" | FIND /I ".TXT"
  ) >>"%@LOGFILE%" 2>&1
  TYPE "%@LOGFILE%"
  %@PAUSE_IF_DEBUG%
@@ -661,29 +699,31 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Update Job Execution Stats
- rem === Updated On: 30 Sep 2025 / 21 Jul 2024 / 18-20 Jul 2024 / 16 Jun 2024
+ rem === Updated On: 16 Oct 2025 / 30 Sep 2025 / 21 Jul 2024 / 18-20 Jul 2024 / 16 Jun 2024
  rem ==========================================================================
 :SaveJobHistory
  rem %* = Optional Message to include in Job History
 
  CALL :GetTime  @SCRIPT_END
- CALL :GetFileSize "%@EXT_BUILD_LIST%" @M_SIZE
- CALL :GetFileSize "%@LATEST_BUILDS%"  @S_SIZE
+ CALL :GetFileSize "%@EXT_BUILD_LIST%" @F_SIZE
+ CALL :GetFileSize "%@LATEST_BUILDS%"  @L_SIZE
+ CALL :GetFileSize "%@BUILD_INFO%"     @M_SIZE
 
  CALL :PadLeft  @LC "%@COUNT_LEGACY%"  "."  2
  CALL :PadLeft  @MC "%@COUNT_MODERN%"  "."  2
- CALL :PadLeft  @MS "!@M_SIZE!"        "."  6
- CALL :PadLeft  @SS "!@S_SIZE!"        "."  5
+ CALL :PadLeft  @FS "!@F_SIZE!"        "."  6
+ CALL :PadLeft  @LS "!@L_SIZE!"        "."  5
+ CALL :PadLeft  @MS "!@M_SIZE!"        "."  5
 
  SET @ROWCOUNT=0
  SET @TRUNCATED=
  SET @ELAPSED=%@NO_TIME%& FOR /F "DELIMS=" %%d IN ('DATEINFO -t !@SCRIPT_BEG#! -n !@SCRIPT_END#! -e "hr:min:sec.ms" -q 2^>NUL') DO SET @ELAPSED=%%d
  SET @SPECIAL=%@JOBTYPE%& IF NOT "%~1"=="" SET @SPECIAL= // %*
- SET @JOBHISTORY=%@JOBNAME% // URLS [LEGACY.%@LC% MODERN.%@MC%] // LISTS [%@DRV% FULL.%@MS% LATEST.%@SS%] %@UPD% // MAIL=%@SM% // DURATION: %@ELAPSED% // START: %@SCRIPT_BEG% // END: !@SCRIPT_END! // %~n0 %@VERSION%%@SPECIAL%
+ SET @JOBHISTORY=%@JOBNAME% // URLS [LEGACY.%@LC% MODERN.%@MC%] // LISTS [%@DRV% FULL.%@FS% LATEST.%@LS% MINI.%@MS%] %@UPD% // MAIL=%@SM% // DURATION: %@ELAPSED% // START: %@SCRIPT_BEG% // END: !@SCRIPT_END! // %~n0 %@VERSION%%@SPECIAL%
 
  %@VERBOSE_OFF%
  TYPE NUL >>"%@TIMINGS%"
- FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q') DO SET @ROWCOUNT=%%c
+ FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q 2^>NUL') DO SET @ROWCOUNT=%%c
  IF !@ROWCOUNT! GTR %@MAXROWS% (
 	 SET @TRUNCATED= // TRUNCATED
 	 SET @OLDTIME=!@TIMINGS:TXT=%@FILESTAMP%!
@@ -814,7 +854,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Display Syntax Help if Required/Requested
- rem === Updated On: 18 Jul 2024 / 16 Jun 2024 / 15 Jun 2024
+ rem === Updated On: 16 Oct 2025 / 18 Jul 2024 / 16 Jun 2024 / 15 Jun 2024
  rem ==========================================================================
 :HelpMessage
  ECHO Obtain Latest Windows Build Numbers from Microsoft (Web)
@@ -839,6 +879,7 @@
  ECHO  /N,  @  ..... Execute the Job without Scheduling It
  ECHO  /Z,  #  ..... Delete and Recreate the Replacement Input File
  ECHO  /D,  $  ..... Debug with a subset of Lists
+ ECHO  /T,  /        Just Generate the Mini List
  ECHO  /M,     ..... Enable Email with Default Settings
  ECHO  /Q,     ..... Do Not Send Email
  ECHO:
@@ -860,4 +901,4 @@
 	 ECHO  * Parameters surrounded by [] are optional.
  )
  CALL :ShowStatus "FINISHED"
-                   
+                                                                                      

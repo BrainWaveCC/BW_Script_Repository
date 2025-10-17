@@ -1,4 +1,4 @@
-;Name of Script;       Variable Name;         Default Value of Variable (Delimiter = ;)
+;Name of Script;       Variable Name;         Default Value of Variable (Delimiter = ;)		[Updated On: 2025-09-21]
 -----------------------------------------------------------------------------------------
 &;                     @BW_FQDN;              @YourSupport.com
 &;                     @BW_EMAIL;             Status%@BW_FQDN%
@@ -86,9 +86,10 @@
 &;                     @NOPSEXEC;             
 &;                     @NOPAEXEC;             
 &;                     @NOPROMPT;             
+&;                     @NO_KLP-%COMPUTERNAME%;
 &;                     @QFE_CMD;              QFE GET Caption,Description,HotFixID,InstalledBy,InstalledOn /FORMAT:TABLE
-&;                     @EPP_PROCESSES;        "Cylance CyOptics MsMpEng MpDefenderCoreService MsSense NisSrv \<Agent\> SentinelAgent"
-&;                     @PATCH_PROCESSES;      "NiniteAgent DCAgentService Action1"
+&;                     @EPP_PROCESSES;        "Cylance CyOptics MsMpEng MpDefenderCoreService MsSense NisSrv \<Agent\> SentinelAgent Coronet-Agent"
+&;                     @PATCH_PROCESSES;      "NiniteAgent DCAgentService Action1 \<Coro\>"
 &;                     @NMAP_TIME;            00:30:00
 &;                     @COREINFO_TIME;        00:15:00
 &;                     @SHORT_TIME;           00:10:00
@@ -106,7 +107,9 @@
 &;                     @SCRIPT_DOCS;          "https://www.BrainWaveCC.com/brainwave-utilities"
 -----------------------------------------------------------------------------------------
 &;                     @HASH_MATRIX;          "NOHASH:21:NONE"  "MD5:32:"":+"  "SHA1:40"  "SHA2 SHA2_256:64:SHA256"  "SHA2_384:96:SHA384"  "SHA2_512:128:SHA512"  "SHA3:64:SHA3_256"  "SHA3_384:96"  "SHA3_512 BLAKE2B:128"  "BLAKE2S BLAKE3:64"  "XX64:16:XXHASH64"  "MH3 MURMURHASH3 MURMURHASH3_128 MURMURHASH3_X64:32:MURMURHASH3_X64_128"  "MURMURHASH3_X86:32:MURMURHASH3_X86_128"
+&;                     @VALID_HASHES;         MD5 SHA1  SHA2 SHA256 SHA2_256 SHA384 SHA2_384 SHA512 SHA2_512  SHA3 SHA3_256 SHA3_384 SHA3_512  BLAKE2 BLAKE2B BLAKE2S  BLAKE3 XX64 XXHASH64  MH3 MURMURHASH3 MURMURHASH3_128 MURMURHASH3_X64 MURMURHASH3_X64_128 MURMURHASH3_X86 MURMURHASH3_X86_128
 &;                     @FALLBACK_HASH;        XXHASH64
+&;                     @LOG_HASH;             BLAKE3
 -----------------------------------------------------------------------------------------
 BackupCert;            @CERT_NAME;            %COMPUTERNAME%\%USERDOMAIN%-Enterprise-CA
 -----------------------------------------------------------------------------------------
@@ -122,8 +125,6 @@ BackupSched;           @EXCLUDE;              "*}.TM*" "*RegBack*" "*SystemProfi
 BackupSched;           @JOBTIME;              00:05:00
 BackupSched;           @MAXBACKUPS;           3
 BackupSched;           @UPDATESCHED;          TRUE
------------------------------------------------------------------------------------------
-CreateArchive;         @MAX_FILE_SIZE;        500,000,000
 -----------------------------------------------------------------------------------------
 CheckIntegrity;        @HASHOPT;              XXHASH64
 CheckIntegrity;        @FALLBACK_HASH;        MD5
@@ -146,6 +147,12 @@ CleanTemp;             @TEMPINET;             "%USERPROFILE%\Local Settings\Temp
 CleanTemp;             @RECYCLE;              $Recycle.Bin RECYCLER RECYCLED RecoveryBin
 CleanTemp;             @NODELETE;             "Don't Delete" "Do Not Delete"
 -----------------------------------------------------------------------------------------
+CleanTime;             @DEFAULT_FOLDER;       %SystemDrive%\Scripts\BAT\Input
+CleanTime;             @DEFAULT_FILES;        *.*
+-----------------------------------------------------------------------------------------
+ConfigureNetwork;      @NETADAPTER1;          vEthernet+(Local+LAN+--+Shared)
+ConfigureNetwork;      @NETADAPTER2;          vEthernet+(Realtek+PCIe+GBE+Family+Controller+-+Virtual+Switch)
+
 ConfigureNetwork;      @NIC;                  "Ethernet"
 ConfigureNetwork;      @SUBNET;               192.168.1
 ConfigureNetwork;      @SUBNETv6;             ffaa:ab40:80b4::
@@ -168,9 +175,7 @@ ConfigureNetwork;      @TZONE;
 -----------------------------------------------------------------------------------------
 CreateArchive;         @SCRIPTS_SOURCE1;      %@STORAGE%\Source\MyCorp
 CreateArchive;         @SCRIPTS_SOURCE2;      %@STORAGE%\Scripts_Source\MyCorp
------------------------------------------------------------------------------------------
-CleanTime;             @DEFAULT_FOLDER;       %SystemDrive%\Scripts\BAT\Input
-CleanTime;             @DEFAULT_FILES;        *.*
+CreateArchive;         @MAX_FILE_SIZE;        500,000,000
 -----------------------------------------------------------------------------------------
 DomainDiag;            @NETBIOS_DOMAIN;       %@NETBIOS%
 DomainDiag;            @DNS_DOMAIN;           %@INTFQDN%
@@ -178,6 +183,7 @@ DomainDiag;            @DNS_DOMAIN;           %@INTFQDN%
 GetInfo;               @MAILSENDER;           Alerts%@ORGFQDN%
 GetInfo;               @SUBJECT;              Malware Alert for: %@UNKNOWN% [%@OTHERID%]
 GetInfo;               @MY_PATCHMGMT;         ManageEngine Desktop Central - Agent
+GetInfo;               @MY_PATCHMGMT;         ManageEngine Endpoint Central - Agent
 GetInfo;               @MY_PATCHMGMT;         wuauserv
 GetInfo;               @MY_ANTIVIRUS;         Webroot SecureAnywhere Endpoint Protection
 GetInfo;               @MY_ANTIVIRUS;         Cylance PROTECT
@@ -281,6 +287,9 @@ StorageInfo;           @MINROWS;              %@MIN_LOG_ROWS%
 StorageInfo;           @JOBTIME;              01:59:00
 StorageInfo;           @IO_OPTIONS;           -c2G -b4K -t2 -d60 -w30 -si
 StorageInfo;           @SKIP_DRIVES;          A: Z:
+StorageInfo;           @LIMITED_IO;           SERVER1 SERVER2 SERVER5 SERVER6
+StorageInfo;           @EXCLUDE_DU;           SERVER3 SERVER4
+StorageInfo;           @INCLUDE_DU;           
 -----------------------------------------------------------------------------------------
 TestMail;              @RCPT;                 %@OPS-TESTER%
 TestMail;              @FROM;                 LogAdmin%@ORGFQDN%
