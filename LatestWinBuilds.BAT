@@ -6,7 +6,7 @@
  rem Created On: 15 Jun 2024
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 16 Oct 2025 / 30 Sep 2025 / 14 Aug 2025 / 04 Oct 2024 / 26 Sep 2024
+ rem Updated On: 22 Mar 2026 / 13 Jan 2026 / 01 Jan 2026 / 29-30 Oct 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -18,9 +18,9 @@
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
  rem
  rem    Blat ................... http://www.blat.net/
- rem    CURL (non-native) ...... https://curl.se/windows/
  rem    SysLogGen .............. http://www.snmpsoft.com/freetools/sysloggen.html
  rem
+ rem    CURL (non-native) ...... https://curl.se/windows/
  rem    CURL ................... Native in Windows 10/2016+
  rem    Resource Kit ........... https://en.wikipedia.org/wiki/Resource_Kit
  rem
@@ -62,8 +62,12 @@
  :::  (Oct 2025) v3.0 -- Added new links for newer versions of Windows;
  :::  -- Added a process to generate an updated mini build list;
  :::
+ :::  (Oct 2025) v3.1 -- Added error checking for internet access and build numbers;
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::  (Jan 2026) v3.2 -- Update Syslog logging routine for script metrics;
+ :::
+ :::
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
  :::  CMD and Powershell syntax ...... https://ss64.com/
  :::  Windows Shell Scripting Tips ... https://www.dostips.com/
@@ -84,10 +88,10 @@
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 16 Oct 2025 / 29 Sep 2025 / 04 Oct 2024 / 26 Sep 2024 / 21 Jul 2024
+ rem === Updated On: 29-30 Oct 2025 / 21 Oct 2025 / 16 Oct 2025 / 29 Sep 2025 / 04 Oct 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.0.0.300
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.2.0.321
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -121,7 +125,7 @@
  SET @SERVER2022=https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
  SET @SERVER23H2=https://support.microsoft.com/en-us/topic/windows-server-version-23h2-update-history-68c851ff-825a-4dbc-857b-51c5aa0ab248
  SET @SERVER2025=https://support.microsoft.com/en-us/topic/windows-server-2025-update-history-10f58da7-e57b-4a9d-9c16-9f1dcd72d7d7
- SET @MODERN_WIN=WIN10 WIN11-21H2 WIN11-22H2 WIN11-23H2 WIN11-24H2 WIN11-25H2 SERVER2016 SERVER2019 SERVER2022 SERVER23H2 SERVER2025
+ SET @MODERN_WIN=WIN10 WIN11-25H2 SERVER2019 SERVER2025
  SET @SERVER2008=https://support.microsoft.com/en-us/topic/windows-server-2008-sp2-update-history-9197740a-7430-f69f-19ff-4998a4e8b25b
  SET @SERVER2008R2=https://support.microsoft.com/en-us/topic/windows-7-sp1-and-windows-server-2008-r2-sp1-update-history-720c2590-fd58-26ba-16cc-6d8f3b547599
  SET @SERVER2012=https://support.microsoft.com/en-au/topic/windows-server-2012-update-history-abfb9afd-2ebf-1c19-4224-ad86f8741edd
@@ -153,6 +157,7 @@
  SET @WIN5.3=2018-04-10     5.2.4500
 
  rem -- Set Other Variables
+ SET @ABORT=
  SET @DRV=%~d0
  SET @UPDATED=N& SET @UPD=---
  SET @COUNT_LEGACY=0
@@ -169,9 +174,9 @@
  SET @LFORMAT=%@LOGPATH%\%~n0
  SET @TIMINGS=%@LFORMAT%.RECORDING.TXT
  SET @LOGFILE=%@LFORMAT%.%@FILESTAMP%
- FOR %%L IN (BUILDFILE TEMPFILE SUMMARY TEMPLOG SORTLOG COMPARISON REPLACEMENT) DO SET @%%L=%@LFORMAT%.%%L.%@FILESTAMP%
+ FOR %%L IN (BUILDFILE TEMPFILE SUMMARY TEMPLOG SORTLOG COMPARISON REPLACEMENT COMP1 COMP2) DO SET @%%L=%@LFORMAT%.%%L.%@FILESTAMP%
  SET @LOGLIST="%@LOGFILE%" "%@BUILDFILE%" "%@SUMMARY%" "%@COMPARISON%" "%@REPLACEMENT%" "%@SORTLOG%"
- SET @CLEANUP="%@TEMPLOG%" "%@TEMPFILE%"  "%@SUMMARY%" "%@COMPARISON%" "%@REPLACEMENT%" "%@SORTLOG%"
+ SET @CLEANUP="%@TEMPLOG%" "%@TEMPFILE%"  "%@SUMMARY%" "%@COMPARISON%" "%@REPLACEMENT%" "%@SORTLOG%" "%@COMP1%" "%@COMP2%"
  FOR %%W IN (%@MODERN_WIN% %@LEGACY_WIN%) DO SET @%%~W_FILE=%@LOGPATH%\%@DIRSTAMP_R%\%%~W-BuildInfo.TXT
 
  rem -- Special Settings
@@ -262,7 +267,7 @@
 
  rem ==========================================================================
  rem === Get Latest Build Info for Each Windows Version (v5.0 to v10.x)
- rem === Updated On: 21 Jul 2024 / 16 Jul 2024 / 17-18 Jun 2024
+ rem === Updated On: 29 Oct 2025 / 21 Jul 2024 / 16 Jul 2024 / 17-18 Jun 2024
  rem ==========================================================================
 :GetBuildInfo
  (FOR %%V IN (%@DIGITS%) DO IF DEFINED @WIN5.%%~V ECHO !@WIN5.%%~V!) >"%@TEMPFILE%"
@@ -275,6 +280,13 @@
 
  rem -- Get Updates for Win10/Server2016+
  FOR %%V IN (%@MODERN_WIN%) DO CALL :GetBuild-n-Date "!@%%~V!" "!@%%~V_FILE!"
+
+ rem -- Skip to end if any downloads are corrupted/unavailable
+ IF DEFINED @ABORT (
+	 SET @JOBTYPE= // DATA DOWNLOAD ISSUES
+	 ECHO *** NO DATA OBTAINED ***
+	 GOTO :ShowFooter
+ )
 
 
  rem ==========================================================================
@@ -304,7 +316,7 @@
 
  rem ==========================================================================
  rem === Generate an Updated Mini Build List
- rem === Updated On: 16 Oct 2025
+ rem === Updated On: 21 Oct 2025 / 16 Oct 2025
  rem ==========================================================================
 :Update-Mini-Build
  CALL :ShowHeader UPDATE MINI BUILD LIST
@@ -318,12 +330,16 @@
 	 ECHO %%~B.%%~C.%%~D >>"%@TEMPFILE%"
  )
 
- rem -- Sorting and Processing
+ rem -- Sorting and Processing, if Needed
  IF EXIST "%@TEMPFILE%" (
 	 SORT "%@TEMPFILE%" /O "%@SORTLOG%" 2>NUL
 	 READABLE "%@SORTLOG%" -a -e -x -f "^5.;^6." >"%@TEMPFILE%"
 	 READABLE "%@SORTLOG%" -a -e -x -f "^10."   >>"%@TEMPFILE%"
-	 ( ECHO %@MSG% & TYPE "%@TEMPFILE%" )       >"%@BUILD_INFO%"
+
+	 rem -- Overwrite Build Info if Needed
+	 READABLE "%@BUILD_INFO%" -a --sk "%@HEADER%" -o "%@COMPARISON%" 2>NUL
+	 FILEHASH --XX64 -K "%@TEMPFILE%" "%@COMPARISON%"
+	 IF ERRORLEVEL 1 ( ECHO %@MSG% & TYPE "%@TEMPFILE%" ) >"%@BUILD_INFO%"
  )
 
  rem -- Cleanup Timestamps
@@ -460,7 +476,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Convert Date to YYYY-MM-DD
- rem === Updated On: 16 Jun 2024 / 15 Jun 2024
+ rem === Updated On: 30 Oct 2025 / 16 Jun 2024 / 15 Jun 2024
  rem ==========================================================================
 :ConvertDate
  rem %1 = Obtain Date in "MMM DD, YYYY" format
@@ -469,7 +485,7 @@
  IF "%~1"=="" EXIT /B
  IF "%~2"=="" EXIT /B
 
- SET @BADDATE=
+ SET %~2=
  SET @ZDATE=%~1
  SET @ZDATE=!@ZDATE:, =/!
  SET @ZDATE=!@ZDATE:January =01/!
@@ -484,21 +500,21 @@
  SET @ZDATE=!@ZDATE:October =10/!
  SET @ZDATE=!@ZDATE:November =11/!
  SET @ZDATE=!@ZDATE:December =12/!
- FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@ZDATE% -F "yyyy-mm-dd" -Q 2^>NUL') DO SET %~2=%%~d
- IF ERRORLEVEL 64 SET @BADDATE=TRUE
+ FOR /F "TOKENS=*" %%d IN ('DATEINFO -S "%@ZDATE%" -F "yyyy-mm-dd" -Q 2^>NUL') DO SET %~2=%%~d
  %@PRINT_IF_DEBUG%
  EXIT /B
 
 
  rem ==========================================================================
  rem === SUBROUTINE: Get Build Date info for Legacy Windows
- rem === Updated On: 20-21 Jul 2024 / 18 Jul 2024 / 17-18 Jun 2024
+ rem === Updated On: 29 Oct 2025 / 20-21 Jul 2024 / 18 Jul 2024 / 17-18 Jun 2024
  rem ==========================================================================
 :GetLegacyBuildDate
  rem %1 = Appropriate URL
  rem %2 = Filename to Store Data In
  rem %3 = Build Info (Optional = %4 - %9)
 
+ IF DEFINED @ABORT EXIT /B
  IF "%~1"=="" EXIT /B
  IF "%~2"=="" EXIT /B
  IF "%~3"=="" EXIT /B
@@ -508,8 +524,7 @@
  rem -- Download Build Info
  TYPE NUL >"%~2"
  CURL -f "%~1" -o "%~2"
- CALL :GetFileSize "%~2" @FILESIZE
- IF "!@FILESIZE!"=="0" ( ECHO *** NO DATA OBTAINED *** & EXIT /B )
+ IF ERRORLEVEL 1 (SET @ABORT=TRUE& EXIT /B)
 
  rem -- Process Build Info
  SET /A @COUNT_LEGACY+=1
@@ -526,12 +541,13 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Get Build Date info for Modern Windows (Win10/2016+)
- rem === Updated On: 18 Jul 2024 / 15-17 Jun 2024
+ rem === Updated On: 29-30 Oct 2025 / 18 Jul 2024 / 15-17 Jun 2024
  rem ==========================================================================
 :GetBuild-n-Date
  rem %1 = Appropriate URL
  rem %2 = Filename to Store Data In
 
+ IF DEFINED @ABORT EXIT /B
  IF "%~1"=="" EXIT /B
  IF "%~2"=="" EXIT /B
 
@@ -540,23 +556,31 @@
  rem -- Download Build Info
  TYPE NUL >"%~2"
  CURL -f "%~1" -o "%~2"
- CALL :GetFileSize "%~2" @FILESIZE
- IF "!@FILESIZE!"=="0" ( ECHO *** NO DATA OBTAINED *** & EXIT /B )
+ IF ERRORLEVEL 1 (SET @ABORT=TRUE& EXIT /B)
 
  rem -- Process Build Info
  SET /A @COUNT_MODERN+=1
  FOR /F "TOKENS=3,5 DELIMS=<>()&" %%U IN ('READABLE "%~2" -a -e -f " (OS Build" -r "%@REPLACEMENT%" 2^>NUL') DO (
-	 SET @ORIGINAL_LINE=%%U %%V
-	 SET @BUILD_NUM=%%~V
-	 CALL :ConvertDate "%%~U" @BUILD_DATE
-	 SET @BUILD_NUM=!@BUILD_NUM:os builds os=!
-	 SET @BUILD_NUM=!@BUILD_NUM:os build os=!
-	 SET @BUILD_NUM=!@BUILD_NUM:os builds=!
-	 SET @BUILD_NUM=!@BUILD_NUM:os build=!
-	 SET @BUILD_NUM=!@BUILD_NUM:and=!
-	 FOR %%S IN (!@BUILD_NUM!) DO IF NOT DEFINED #%%~S (
-		 SET #%%~S=TRUE
-		 IF NOT DEFINED @BADDATE ECHO !@BUILD_DATE!    10.0.%%~S>>"%@TEMPFILE%"
+	 SET @V1=%%~U& SET @V1=!@V1:"=!
+	 SET @V2=%%~V& SET @V2=!@V2:"=!
+	 SET @ORIGINAL_LINE=!@V1! !@V2!
+	 SET @BUILD_NUM=!@V2!
+	 CALL :ConvertDate "!@V1!" @BUILD_DATE
+	 IF DEFINED @BUILD_DATE (
+		 SET @BUILD_NUM=!@BUILD_NUM:os builds os=!
+		 SET @BUILD_NUM=!@BUILD_NUM:os build os=!
+		 SET @BUILD_NUM=!@BUILD_NUM:os builds=!
+		 SET @BUILD_NUM=!@BUILD_NUM:os build=!
+		 SET @BUILD_NUM=!@BUILD_NUM:and=!
+		 SET @VALID=TRUE
+		 FOR /F "TOKENS=1-2 DELIMS=. " %%I IN ('ECHO !@BUILD_NUM!') DO (
+			 CHECKPARAMS --RC -N "%%~I" & IF ERRORLEVEL 16385 SET @VALID=FALSE
+			 CHECKPARAMS --RC -N "%%~J" & IF ERRORLEVEL 16385 SET @VALID=FALSE
+		 )
+		 IF /I "!@VALID!"=="TRUE" FOR %%S IN (!@BUILD_NUM!) DO IF NOT DEFINED #%%~S (
+			 SET #%%~S=TRUE
+			 ECHO !@BUILD_DATE!    10.0.%%~S>>"%@TEMPFILE%"
+		 )
 	 )
  )
  %@PRINT_IF_DEBUG%
@@ -699,7 +723,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Update Job Execution Stats
- rem === Updated On: 16 Oct 2025 / 30 Sep 2025 / 21 Jul 2024 / 18-20 Jul 2024 / 16 Jun 2024
+ rem === Updated On: 22 Mar 2026 / 16 Oct 2025 / 30 Sep 2025 / 21 Jul 2024
  rem ==========================================================================
 :SaveJobHistory
  rem %* = Optional Message to include in Job History
@@ -712,8 +736,8 @@
  CALL :PadLeft  @LC "%@COUNT_LEGACY%"  "."  2
  CALL :PadLeft  @MC "%@COUNT_MODERN%"  "."  2
  CALL :PadLeft  @FS "!@F_SIZE!"        "."  6
- CALL :PadLeft  @LS "!@L_SIZE!"        "."  5
- CALL :PadLeft  @MS "!@M_SIZE!"        "."  5
+ CALL :PadLeft  @LS "!@L_SIZE!"        "."  6
+ CALL :PadLeft  @MS "!@M_SIZE!"        "."  4
 
  SET @ROWCOUNT=0
  SET @TRUNCATED=
@@ -741,7 +765,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Forward Output to Available Syslog Server(s) as LOCAL3
- rem === Updated On: 25 Sep 2024 / 18 Jul 2024
+ rem === Updated On: 13 Jan 2026 / 01 Jan 2026 / 25 Sep 2024 / 18 Jul 2024
  rem ==========================================================================
 :ForwardToSyslog
  rem %1 = Syslog Severity Level (RFC 3164)
@@ -766,13 +790,13 @@
 	 IF /I "%@USE_SYSLOGS%"=="TRUE" (
 		 FOR %%s IN ("" 0 1 2 3 4) DO IF DEFINED @SYSLOG%%~s (
 			 SET @S_PORT=514& IF DEFINED @SYSLOG%%s_PORT SET @S_PORT=!@SYSLOG%%~s_PORT!
-			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
 
 	 IF /I "%@SCRIPT_METRICS%"=="TRUE" (
 		 FOR %%P IN (%@MY_SYSLOG_PORTS%) DO (
-			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"!@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"%DATE% at %TIME: =0% -- !@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
  )
@@ -901,4 +925,4 @@
 	 ECHO  * Parameters surrounded by [] are optional.
  )
  CALL :ShowStatus "FINISHED"
-                                                                                      
+  

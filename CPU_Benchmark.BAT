@@ -1,12 +1,12 @@
 @ECHO OFF
  rem ==========================================================================
- rem === Create a Rotating Schedule of SystemState Backups via ZIP
+ rem === Record Basic CPU Benchmark Results (using GetPrimeNumbers)
  rem ==========================================================================
  rem
- rem Created On: 06 Mar 2003
+ rem Created On: 13 Jan 2020
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 13 Jan 2026 / 01 Jan 2026 / 14 Oct 2025 / 29 Sep 2025 / 18 Sep 2025
+ rem Updated On: 13 Jan 2026 / 01 Jan 2026 / 29 Sep 2025 / 30 Aug 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -17,8 +17,6 @@
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
  rem
- rem    InfoZip Utilities ...... http://sourceforge.net/projects/infozip/files/
- rem    ShadowSpawn ............ https://github.com/candera/shadowspawn/downloads
  rem    SysLogGen .............. http://www.snmpsoft.com/freetools/sysloggen.html
  rem
  rem  Input Files Used By Script (stored in %SystemDrive%\Scripts\Bat\Input):
@@ -28,72 +26,10 @@
  rem    SetDrive.BAT ........... Set Global Variables for this Environment
  rem ==========================================================================
 
- :::  This script originally created a schedule of daily SystemState backups on
- :::  Windows 2000/XP/2003 system using the native NTBACKUP utility, named for
- :::  each day of the week.  This functionality was changed by Microsoft several
- :::  times starting with Windows 2008 and WBADMIN.  Ultimately, we have moved
- :::  away from using the Microsoft Native tools here.
- :::
- :::  As for version 5 of this script, the SystemState backup is reduced to the
- :::  following:
- :::  1. NTUSER.DAT files under the C:\Users folder tree
- :::  2. The major registry hives under the %WINDIR%\System32\Config folder tree
- :::
- :::  (Jul 2019) v5.0 -- Major change away from Microsoft Native options;
- :::  -- Backups now consist of the NTUSER.DAT files plus the registry hives
- :::  found in %WINDIR%\System32\Config, using ShadowSpawn to access open files,
- :::  and compressed as ZIP files with the .Archive extension;
- :::  -- Added JobHistory and Syslog reporting to the script;
- :::
- :::  (Aug 2019) v5.1 -- Capture ErrorLevel of ShadowSpawn processes and record
- :::  them in the JobHistory log;
- :::
- :::  (Oct 2019) v5.2 -- Updated :ShowStatus routine to reset TITLE/CodePage;
- :::
- :::  (Oct 2019) v5.3 -- Update :PadLeft and :PadRight routines;
- :::
- :::  (Jan 2020) v5.4 -- Added a routine for validating integer parameters;
- :::  -- Consolidate :PadLeft and :PadRight routines;
- :::
- :::  (Mar 2020) v5.5 -- Search "Documents and Settings" on pre-2008 systems;
- :::
- :::  (May 2020) v5.6 -- Migrated :DebugMode routine to SetDrive.BAT;
- :::
- :::  (Jul 2020) v5.7 -- Validate Existing Archive Before Adding New Files;
- :::
- :::  (Nov 2020) v5.8 -- Moved backups to SystemState folder under Backups$ share;
- :::
- :::  (Nov 2020) v5.9 -- Provided extended HELP options (--?? / --H2);
- :::  -- New CHECKPARAMS syntax for processing extended help options;
- :::
- :::  (Jan 2022) v6.0 -- Modify the @NAMECHK verification to include \ prefix;
- :::
- :::  (Oct 2023) v6.1 -- Change the way the @SCRIPT_BEG# variable is
- :::  calculated in various subroutines by using DATEINFO instead of %DATE%;
- :::
- :::  (May 2024) v6.2 -- Check for essential utilities with FINDFILES;
- :::  -- Add logging when (un)scheduling jobs;
- :::
- :::  (Sep 2024) v6.3 -- Call SetDrive.BAT with option for 1252 as code page;
- :::  -- Extended :ForwardToSyslog to update any locally running syslog service;
- :::  -- Created :LogCriticalFailure routine for early job failures;
- :::
- :::  (Sep 2025) v6.4 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
- :::
- :::  (Jan 2026) v6.5 -- Update Syslog logging routine for script metrics;
- :::
- :::
- :::  WINDOWS SHELL SCRIPTING RESOURCES:
- :::  -------------------------------------------------------------------------
- :::  CMD and Powershell syntax ...... https://ss64.com/
- :::  Windows Shell Scripting Tips ... https://www.dostips.com/
- :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
- :::  -------------------------------------------------------------------------
-
 
  rem ==========================================================================
  rem === Generate Filtered CMD Title
- rem === Updated On: 14 Aug 2025 / 22 Jul 2020 / 16 May 2018
+ rem === Updated On: 14 Aug 2025 / 20 Nov 2020 / 13 Jan 2020
  rem ==========================================================================
 :DisplayTitle
  SET "@TTT=%* "
@@ -104,86 +40,45 @@
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 18 Sep 2025 / 26 Sep 2024 / 08 Sep 2024 / 10 May 2024 / 30 Nov 2020
+ rem === Updated On: 29 Sep 2025 / 30 Aug 2025 / 26 Sep 2024 / 10 May 2024 / 01 May 2021
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v6.5.0.650
-
- rem -- Need This Variable for HELP Message
- SET @SS_EXT=.Archive
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.3.0.330
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
  IF ERRORLEVEL 1 IF NOT ERRORLEVEL 16 GOTO :HelpMessage
 
  rem -- Check for Essential Utilities and/or Scripts
- SET #BWUTILS="%~dp0SetDrive.BAT" READABLE.EXE
- SET #MSUTILS=FINDSTR.EXE SCHTASKS.EXE
- SET #O_UTILS=SYSLOGGEN.EXE SHADOWSPAWN.EXE ZIP.EXE
- FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% %#O_UTILS%
+ SET #BWUTILS="%~dp0SetDrive.BAT" CCALC.EXE PRIMEPLUS.EXE READABLE.EXE
+ SET #MSUTILS=FINDSTR.EXE SCHTASKS.EXE SLEEP.EXE SYSTEMINFO.EXE
+ SET #O_UTILS=SYSLOGGEN.EXE
+ FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% -o %#O_UTILS% WMIC.EXE
  IF ERRORLEVEL 64 (CALL :LogCriticalFailure ABORTED - MISSING CRITICAL FILES & GOTO :ExitBatch)
 
  rem -- Default Variables (Override via CustomVariables.*.TXT)
- FOR %%D IN ("Documents and Settings" "Users") DO IF EXIST "%SystemDrive%\%%~D" SET @NTUSER_ROOT=%SystemDrive%\%%~D
- SET @NTUSER_DATA=NTUSER*.*
- SET @HIVES_ROOT=%WINDIR%\System32\Config
- SET @HIVES_DATA=DEFAULT ELAM COMPONENTS DRIVERS SAM SECURITY SOFTWARE SYSTEM
- SET @EXCLUDE="*SystemProfile*" "*AppData*" "*Dropbox*" "*OneDrive*" "*Box*" "*Google*" "*RegBack*"
+ SET @PRIME_LIMIT=1,000,000,000
 
  rem -- Job Scheduling Variables
- SET @JOBNAME=SystemState Backup
+ SET @JOBNAME=Daily CPU Benchmark
  SET @JOBUSER=SYSTEM
- SET @JOBFREQ=DAILY
- SET @JOBTIME=00:01:00
+ SET @JOBFREQ=HOURLY /MO 12
+ SET @JOBTIME=00:03:00
  SET @JOBDATE=
- SET @JOBPATH=%~f0
+ SET @JOBPATH="%~f0" %~1
  SET @JOBTYPE=
- SET @UPDATESCHED=TRUE
 
  rem -- Set Global Variables from Centralized Script
- CALL "%~dp0SetDrive.BAT" "%~n0" 1252
+ CALL "%~dp0SetDrive.BAT" "%~n0"
 
- rem -- Obtain Free Drive for Use with VSS or EXIT
- SET @ERR1=*
- SET @ERR2=*
- SET @VSS_VERBOSITY=/VERBOSITY=2
- SET @VSS=& FOR %%F IN ("%@UTILS64%" "%@UTILS%") DO IF EXIST "%%~F\ShadowSpawn.exe" SET @VSS=ShadowSpawn
- CALL :FindFreeDrive @DRV
- IF NOT DEFINED @DRV (
-	 CALL :SaveJobHistory ABORTED - NO FREE DRIVE
-	 GOTO :ExitBatch
- )
-
- rem -- Main Variables
- SET @ECHO=
- SET @ARCHIVES_PRUNED=0
-
- rem -- Archive-Related Variables
- IF NOT DEFINED @MAXBACKUPS SET @MAXBACKUPS=2
- SET @BACKUPDIR=%@BACKUPS%\SystemState
- SET @BK_PREFIX=%@BACKUPDIR%\SystemState-
- SET @BACKUPFILE=!@BK_PREFIX!%~1!@SS_EXT!& IF "%~1"=="" SET @BACKUPFILE=!@BK_PREFIX!%@DAY%!@SS_EXT!
-
- rem -- Zip-Related Variables
- IF DEFINED @EXCLUDE SET @EXCLUDE=-x !@EXCLUDE:-x=!
- SET @ZIPTEST=ZIP -c -b "%TEMP%"
- SET @ZIPCMD=ZIP !@EXCLUDE! -9 -v -dgds 1m -S -R -dt -b "%TEMP%"
- SET @RUNTHIS=%TEMP%\ExecuteZip#%@RANDOM%.BAT
- ( ECHO @PUSHD "!@DRV!"
-   ECHO @ECHO !@ZIPCMD! %%*
-   ECHO @!@ZIPCMD! %%*
-   ECHO @POPD
- ) >%@RUNTHIS%
- SET @ZIPCMD=%@RUNTHIS%
+ rem -- Set Contingency Hardware Values
+ IF NOT DEFINED @TOTAL_RAM SET @TOTAL_RAM=0KB
+ IF NOT DEFINED @CPU_NAME_ONLY SET @CPU_NAME_ONLY=%@CPU_NAME%
 
  rem -- Standard Log Variables
- SET @LOGPATH=%@STORAGE%\Logs\Backups
- SET @LFORMAT=%@LOGPATH%\SystemStateBackups
- SET @TIMINGS=%@LFORMAT%.RECORDING.TXT
- SET @LOGFILE=%@LFORMAT%.%@FILESTAMP%
- FOR %%L IN (SUMMARY TEMPLOG ERRORS) DO SET @%%L=%@LFORMAT%.%%L.%@FILESTAMP%
- SET @LOGLIST="%@LOGFILE%" "%@ERRORS%"
- SET @CLEANUP="%@TEMPLOG%" "%@ERRORS%" "%@SUMMARY%" "%@RUNTHIS%"
+ SET @LOGPATH=%@STORAGE%\Logs\Maint
+ SET @LOGFILE=%@LOGPATH%\%~n0.%@FILESTAMP%
+ SET @TIMINGS=%@LOGPATH%\%~n0.RECORDING.TXT
 
  rem -- Ensure Valid Log Processing Values
  CALL :GetInteger @MINROWS "%@MIN_LOG_ROWS%" 005 001 010
@@ -191,21 +86,40 @@
 
  rem -- Process Special Command-line Parameters
  SET @ALL_PARAMS=%*
- CALL :GetParams "S" & IF DEFINED @OK (SET @UPDATESCHED=TRUE& SET @SCHEDULEONLY=TRUE)
- CALL :GetParams "U" & IF DEFINED @OK (SET @UNSCHED=TRUE)
- CALL :GetParams "N" & IF DEFINED @OK (SET @NOSCHED=TRUE)
- CALL :GetParams "Z" & IF DEFINED @OK (SET @TESTMODE=TRUE& SET @ECHO=ECHO& SET @JOBTYPE= // TEST)
- CALL :GetParams "D" & IF DEFINED @OK (SET @DELETE=TRUE) ELSE (SET @DELETE=)
- %@PAUSE_IF_DEBUG%
+ CALL :GetParams "S ." & IF DEFINED @OK (SET @UPDATESCHED=TRUE& SET @SCHEDULEONLY=TRUE)
+ CALL :GetParams "U -" & IF DEFINED @OK (SET @UPDATESCHED=TRUE& SET @UNSCHED=TRUE)
+ CALL :GetParams "N @" & IF DEFINED @OK (SET @NOSCHED=TRUE)
+ CALL :GetParams "Z *" & IF DEFINED @OK (SET @UPDATESCHED=FALSE& SET @NODELAY=TRUE) ELSE (SET @NODELAY=)
+
+ rem -- Verify Legitimate Limit for Prime Number Calculation
+ SET @VAR=%~1& IF DEFINED @VAR SET @PRIME_LIMIT=!@VAR:"=!
+ CALL :GetInteger @PRIME_LIMIT "%@PRIME_LIMIT%" "5,000,000" "250,000,000" "50,000,000,000"
+
+ rem -- Key Variable Verification
+ FOR %%V IN (PRIME_LIMIT MINROWS MAXROWS) DO IF NOT DEFINED @%%~V (
+	 ECHO:
+	 ECHO *** WARNING: The @%%~V variable is undefined.
+	 ECHO:
+	 ECHO  Please ensure that all configuration info is provided correctly
+	 ECHO  within the file: "%@CUSTOM-VARS%"
+	 ECHO:
+	 ECHO  Alternatively, this information can be entered directly into this script,
+	 ECHO  although this is not recommended because it undermines portability.
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 CALL :SaveJobHistory ABORTED - UNDEFINED VARIABLE
+	 GOTO :HelpMessage
+ )
+ %@PRINT_IF_DEBUG%
 
 
  rem ==========================================================================
  rem === Create Scheduled Job using SCHTASKS (XP/2003/Vista/+)
- rem === Updated On: 10 May 2024 / 22 Jan 2022 / 11 Aug 2019
+ rem === Updated On: 10 May 2024 / 22 Jan 2022 / 13 Jan 2020
  rem ==========================================================================
 :ScheduleJobs
  IF /I "%@NOSCHED%"=="TRUE" IF /I NOT "%@UNSCHED%"=="TRUE" (
-	 SET @JOBTYPE=!@JOBTYPE! // ONE-TIME
+	 SET @JOBTYPE= // ONE-TIME
 	 ECHO:
 	 ECHO *** Job Scheduling Disabled ***
 	 ECHO:
@@ -238,7 +152,7 @@
  )
 
  rem -- Check for Schedule Update Parameters
- IF /I "%@UPDATESCHED%"=="TRUE" (!@SET_SCHED!) ELSE (CALL :CheckSched "%~f0")
+ IF /I "%@UPDATESCHED%"=="TRUE" (!@SET_SCHED!) ELSE (CALL :CheckSched "%~f0" " %@JOBVRFY%$")
  ECHO %@DIVIDER-%
  ECHO:
  IF /I "%@SCHEDULEONLY%"=="TRUE" (
@@ -252,117 +166,54 @@
 
 
  rem ==========================================================================
- rem === Backup NTUSER files and Windows Registry Hives
- rem === Updated On: 22 Jul 2020 / 11 Aug 2019
+ rem === Get System Type (Physical vs Virtual)
+ rem === Updated On: 01 May 2021 / 14 Feb 2021
  rem ==========================================================================
-:MakeBackups
- CALL :ShowHeader CREATE SYSTEMSTATE BACKUPS
- FOR %%V IN ("%@BACKUPDIR%" "%@LOGPATH%" "%TEMP%") DO IF NOT EXIST "%%~V" MD "%%~V" >NUL
- SET @VERIFY_BACKUP=%@ZIPTEST% "%@BACKUPFILE%"
- SET @BACKUP_NTUSER=%@VSS% %@VSS_VERBOSITY% "%@NTUSER_ROOT%" !@DRV! %@ZIPCMD% -FS "%@BACKUPFILE%" %@NTUSER_DATA%
- SET @BACKUP_SYSTEM=%@VSS% %@VSS_VERBOSITY% "%@HIVES_ROOT%"  !@DRV! %@ZIPCMD% -T  "%@BACKUPFILE%" %@HIVES_DATA%
+:PhysicalVsVirtual
+ ECHO Determining Physical vs Virtual Status
+ SET @SYSTYPE=P& FOR /F "TOKENS=2*" %%I IN ('SYSTEMINFO 2^>NUL ^| FIND "Virtual Machine"') DO SET @SYSTYPE=V
 
- rem -- Create Compressed Archive of NTUSER files and Windows Registry Hives...
- ( NOW \**** %COMPUTERNAME% - [\v] - %@VER%\n\*\n
-
-   ECHO  - Testing Archive... >CON
-   ECHO !@VERIFY_BACKUP!
-   FOR /F "TOKENS=*" %%B IN ('!@VERIFY_BACKUP! ^| FIND /I "zip error: " ') DO SET @DELETE=TRUE
-   IF DEFINED @DELETE (
-	  %@ECHO% ECHO - Deleting Invalid Archive: "%@BACKUPFILE%"
-	  %@ECHO% DEL "%@BACKUPFILE%"
-   )
-   ECHO %@DIVIDER-%
-   ECHO:
-
-   ECHO  - Backing Up User Registry... >CON
-   ECHO !@BACKUP_NTUSER!
-   %@ECHO% !@BACKUP_NTUSER!
-   %@ECHO% SET @ERR1=!ERRORLEVEL!
-   ECHO %@DIVIDER-%
-   ECHO:
-
-   ECHO  - Backing Up System Registry... >CON
-   ECHO !@BACKUP_SYSTEM!
-   %@ECHO% !@BACKUP_SYSTEM!
-   %@ECHO% SET @ERR2=!ERRORLEVEL!
-   ECHO %@DIVIDER-%
-   ECHO:
-  ) >>"%@LOGFILE%" 2>>"%@ERRORS%"
- %@PAUSE_IF_DEBUG%
-
-
- rem ==========================================================================
- rem === Prune Backup Files Which Exceed The Maximum Number of Backups
- rem === Updated On: 11 Aug 2019 / 08 Aug 2019
- rem ==========================================================================
-:PruneOlderFiles
- CALL :ShowHeader PRUNE SYSTEMSTATE ARCHIVES - KEEP THE %@MAXBACKUPS% MOST RECENT BACKUPS
-
- FOR %%V IN (1 2 3 4 5 6 7 8 9 10) DO IF "%%~V"=="%@MAXBACKUPS%" (
-	 ECHO:
-	 ECHO Keeping The %@MAXBACKUPS% Most Recent Backups...
-	 FOR /F "SKIP=%@MAXBACKUPS% TOKENS=*" %%E IN ('DIR /OG-D /B /A "%@BK_PREFIX%*.*" ') DO (
-		 ECHO  - Deleting Old Backup File: "%%~E" >CON
-		 ECHO  - Deleting Old Backup File: "%%~E"
-		 %@ECHO% DEL "%@BACKUPDIR%\%%~E"
-		 SET /A @ARCHIVES_PRUNED+=1
-	 )
-	 ECHO:
- ) >>"%@LOGFILE%" 2>>"%@ERRORS%"
- %@PAUSE_IF_DEBUG%
-
-
- rem ==========================================================================
- rem === Generate Report Summary
- rem === Updated On: 20 Oct 2019 / 30 Jul 2019
- rem ==========================================================================
-:ReportSummary
- CALL :ShowHeader SAVE JOB HISTORY
- CALL :SaveJobHistory
-
- ( rem -- Write to Log
-	 DIR /OGD "%@BACKUPDIR%"
-	 ECHO:
-	 ECHO %@DIVIDER~%
-	 ECHO  Total Files Archived ...!@FA!
-	 ECHO  Old Archives Pruned .....!@AP!
-	 ECHO %@DIVIDER~%
- ) >>"%@LOGFILE%" 2>&1
- %@PAUSE_IF_DEBUG%
-
-
- rem ==========================================================================
- rem === Perform Log Management/Maintenance (Or Copy Them for Debug Purposes)
- rem === Updated On: 26 Jun 2019
- rem ==========================================================================
-:LogMaint
- CALL :ShowHeader PERFORMING FINAL LOG MAINTENANCE
-
- IF /I "%DEBUG%"=="COPY" FOR %%L IN (%@LOGLIST% %@CLEANUP%) DO IF EXIST %%L COPY %%L "%TEMP%" /Y
-
- FOR %%L IN (%@LOGLIST%) DO IF EXIST %%L (
-	 SET @THISLOG=%%L
-	 COPY %%L !@THISLOG:%@FILESTAMP%=TXT! /Y
-	 IF /I %%L=="%@LOGFILE%" (ECHO: & DIR %%L)
+ rem -- Add a Short, Random Delay (60-180 seconds) if Running on a Virtual Machine
+ IF "%@SYSTYPE%"=="V" IF NOT DEFINED @NODELAY (
+	 FOR /F %%r IN ('DATEINFO -Q -R 120') DO SET /A @DELAY=%%r + 60
+	 ECHO  - Virtual Machine will sleep for !@DELAY! seconds...
+	 SLEEP !@DELAY!
  )
- FOR %%L IN (%@CLEANUP%) DO IF EXIST %%L DEL %%L >NUL
- ECHO %@DIVIDER~%
  %@PAUSE_IF_DEBUG%
 
 
  rem ==========================================================================
- rem === Generate Final Job Report
- rem === Updated On: 04 Aug 2019 / 26 Jun 2019 / 25 Feb 2015
+ rem === Perform Calculation of RAM via WMIC if Previous Value is 0
+ rem === Updated On: 23 Nov 2020
  rem ==========================================================================
-:FinalReport
- CALL :ShowHeader GENERATE FINAL REPORT
- DIR "%@BK_PREFIX%*.*" /OD /A-D
+:GetRAM
+ IF /I "%@TOTAL_RAM%"=="0KB" (
+	 ECHO Getting Accurate System Memory Info
+	 FOR /F "TOKENS=2 DELIMS==" %%R IN ('WMIC COMPUTERSYSTEM GET * /FORMAT:LIST ^| FIND /I "TotalPhysicalMemory"') DO (
+		 FOR /F %%M IN ('CCALC Round^(%%R / 1024**3^)') DO SET @TOTAL_RAM=%%MGB
+	 )
+ )
+ %@PAUSE_IF_DEBUG%
+
+
+ rem ==========================================================================
+ rem === Generate Prime Numbers and Record Performance
+ rem === Updated On: 12 Feb 2021 / 17 Feb 2020
+ rem ==========================================================================
+:GetPrime
+ FOR %%O IN (CON %@LOGFILE%) DO ECHO Running Basic CPU Benchmark by calculating Prime Numbers up to %@PRIME_LIMIT% >%%O 2>&1
+ FOR /F "SKIP=1 TOKENS=1-2* DELIMS=/" %%P IN ('PrimePlus %@PRIME_LIMIT% --BenchMark') DO (
+	 SET @BENCHMARK=%%P//%%Q
+	 ECHO %%Q//%%R      >>%@LOGFILE%
+	 ECHO %@DIVIDER~%   >>%@LOGFILE%
+ )
+ CALL :SaveJobHistory
+ %@PAUSE_IF_DEBUG%
 
 
  rem ==========================================================================
  rem === Reset Environment Variables and Exit Batch File
- rem === Updated On: 03 Jul 2024 / 04 Oct 2019 / 28 Feb 2019
+ rem === Updated On: 03 Jul 2024 / 13 Jan 2020
  rem ==========================================================================
 :ExitBatch
  CALL :ShowStatus "FINISHED"
@@ -372,49 +223,13 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Store Current Date and Time in Variable
- rem === Updated On: 16 Oct 2023 / 30 Jul 2019
+ rem === Updated On: 16 Oct 2023 / 13 Jan 2020
  rem ==========================================================================
 :GetTime
  rem %1 = Variable to Store Date/Time
 
  SET %~1=!DATE! at !TIME: =0!
  FOR /F "TOKENS=*" %%d IN ('DATEINFO -S %@DATEFMT% -Q 2^>NUL') DO SET %~1#="%%~d"
- %@PRINT_IF_DEBUG%
- EXIT /B
-
-
- rem ==========================================================================
- rem === SUBROUTINE: Display Section Header
- rem === Updated On: 30 Jul 2019
- rem ==========================================================================
-:ShowHeader
- rem %* = Message to Display
-
- IF "%~1"=="" EXIT /B
- ECHO:
- ECHO:
- ECHO %@DIVIDER*%
- ECHO *** %*
- ECHO %@DIVIDER*%
- %@PRINT_IF_DEBUG%
- EXIT /B
-
-
- rem ==========================================================================
- rem === SUBROUTINE: Find Free Drive Letter
- rem === Updated On: 23 Jun 2019
- rem ==========================================================================
-:FindFreeDrive
- rem %1 = Drive Variable
-
- PUSHD \\%COMPUTERNAME%\ADMIN$
- IF %ERRORLEVEL% EQU 0 (
-	 IF "%~1"=="" (SET @DRV=%CD%) ELSE (SET %~1=%CD%)
- ) ELSE (
-	 ECHO *** ERROR SETTING DRIVE ***
-	 IF "%~1"=="" (SET @DRV=) ELSE (SET %~1=)
- )
- POPD
  %@PRINT_IF_DEBUG%
  EXIT /B
 
@@ -441,7 +256,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Use CheckParams.exe to Capture Selected Parameters
- rem === Updated On: 21 Jan 2020 / 24 Sep 2019
+ rem === Updated On: 21 Jan 2020
  rem ==========================================================================
 :GetParams
  rem %1 = Parameters to Search For
@@ -459,13 +274,13 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Pad Variable Content to the Left/Right for Display in Logs
- rem === Updated On: 22 Jan 2020 / 14 Oct 2019
+ rem === Updated On: 22 Jan 2020 / 13 Jan 2020
  rem ==========================================================================
 :PadLeft
 :PadRight
  rem %1 = Variable to Store New Content
  rem %2 = Existing Value to Pad
- rem %3 = Character to use as padding [typically " ", "." or "0"]
+ rem %3 = Character to use as padding [typically "." or " "]
  rem %4 = New String Length
 
  SET @STR=%~2
@@ -504,21 +319,25 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Update Job Execution Stats
- rem === Updated On: 14 Oct 2025 / 29 Sep 2025 / 18 Sep 2025 / 15 Oct 2019
+ rem === Updated On: 29 Sep 2025 / 04 Apr 2025 / 18 Jun 2024 / 14 Feb 2021
  rem ==========================================================================
 :SaveJobHistory
  rem %* = Optional Message to include in Job History
 
- SET @FILES_ARCHIVED=0& FOR /F %%A IN ('READABLE "%@LOGFILE%" -F "  testing: " --TO -Q 2^>NUL') DO SET /A @FILES_ARCHIVED+=%%~A
+ CALL :GetTime  @SCRIPT_END
+ CALL :PadLeft  @DL "%@DELAY%"         "0"  3
+ CALL :PadLeft  @RM "%@TOTAL_RAM%"     "."  6
+ CALL :PadLeft  @CS "%@CPU_SOCKETS%"   "-"  1
+ CALL :PadLeft  @PC "%@PHY_CORES%"     "-"  2
+ CALL :PadLeft  @LC "%@LOG_CORES%"     "-"  3
+ CALL :PadLeft  @MH "%@CPU_SPEED% Mhz" "-"  8
+ CALL :PadRight @CM "%@CPU_NAME_ONLY%" "."  55
 
- CALL :GetTime @SCRIPT_END
- CALL :PadLeft @FA "%@FILES_ARCHIVED%" "." 3
- CALL :PadLeft @AP "%@ARCHIVES_PRUNED%" "." 2
  SET @ROWCOUNT=0
  SET @TRUNCATED=
  SET @ELAPSED=%@NO_TIME%& FOR /F "DELIMS=" %%d IN ('DATEINFO -t !@SCRIPT_BEG#! -n !@SCRIPT_END#! -e "hr:min:sec.ms" -q 2^>NUL') DO SET @ELAPSED=%%d
  SET @SPECIAL=%@JOBTYPE%& IF NOT "%~1"=="" SET @SPECIAL= // %*
- SET @JOBHISTORY=%@JOBNAME% // FILES ZIPPED.%@FA% // ARCHIVES PRUNED.%@AP% // DURATION: %@ELAPSED% // START: %@SCRIPT_BEG% // END: !@SCRIPT_END! // VSS=%@DRV:~0,2% ERRLVL1=%@ERR1% ERRLVL2=%@ERR2% // %~n0 %@VERSION%%@SPECIAL%
+ SET @JOBHISTORY=%@BENCHMARK%// {%@SYSTYPE%} RAM.%@RM%  CPU-%@CS%-%@PC%-%@LC%-%@MH% // %@CM% // DURATION: %@ELAPSED% [%@DL%] // START: %@SCRIPT_BEG% // END: !@SCRIPT_END! // %~n0 %@VERSION%%@SPECIAL%
 
  %@VERBOSE_OFF%
  TYPE NUL >>"%@TIMINGS%"
@@ -530,9 +349,9 @@
 	 READABLE "!@OLDTIME!" --ST -%@MINROWS% -O "%@TIMINGS%"
 	 ECHO:
 	 CALL :ForwardToSyslog "5" %@JOBNAME%: Job History Logfile Truncated -- [!DATE! at !TIME!]
- ) >>"%@LOGFILE%" 2>>"%@ERRORS%"
+ ) >>"%@LOGFILE%" 2>&1
 
- CALL :ForwardToSyslog "6" %@JOBHISTORY%!@RUNMODE!!@TRUNCATED! >>"%@TIMINGS%" 2>>"%@ERRORS%"
+ CALL :ForwardToSyslog "6" %@JOBHISTORY%!@TRUNCATED! >>"%@TIMINGS%" 2>>"%@LOGFILE%"
  %@VERBOSE_ON%
  %@PAUSE_IF_DEBUG%
  EXIT /B
@@ -540,7 +359,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Forward Output to Available Syslog Server(s) as LOCAL3
- rem === Updated On: 13 Jan 2026 / 01 Jan 2026 / 25 Sep 2024 / 13 Jan 2020 / 23 Jun 2019
+ rem === Updated On: 13 Jan 2026 / 01 Jan 2026 / 25 Sep 2024 / 13 Jan 2020
  rem ==========================================================================
 :ForwardToSyslog
  rem %1 = Syslog Severity Level (RFC 3164)
@@ -582,7 +401,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Prepare Messages for SyslogGen Syslog Utility
- rem === Updated On: 23 Jun 2024 / 11 Aug 2019 / 23 Jun 2019
+ rem === Updated On: 23 Jun 2024 / 14 Jan 2020
  rem ==========================================================================
 :Prepare4Syslog
  rem %* = Syslog Message to be Cleaned Up
@@ -605,7 +424,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Check if Scheduled Job is Already Running
- rem === Updated On: 03 Sep 2024 / 16 May 2018 / 05 Feb 2015
+ rem === Updated On: 03 Sep 2024 / 13 Jan 2020
  rem ==========================================================================
 :CheckSched
  rem %1 = Standard Search Criteria
@@ -630,7 +449,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 13 Jan 2020
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
@@ -653,10 +472,10 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Display Syntax Help if Required/Requested
- rem === Updated On: 30 Nov 2020 / 29 Nov 2020
+ rem === Updated On: 01 May 2021 / 30 Nov 2020
  rem ==========================================================================
 :HelpMessage
- ECHO Create a Rotating Schedule of SystemState Backups via ZIP
+ ECHO Record Basic CPU Benchmark Results (using GetPrimeNumbers)...
  ECHO:
  ECHO ----------
  ECHO YOU TYPED:  %0 %*
@@ -665,7 +484,7 @@
  ECHO -----------
  ECHO CMD SYNTAX:
  ECHO -----------
- ECHO  %~n0  [destination_file]
+ ECHO  %~n0  [max_possible_prime] [options]
  ECHO  %~n0  -h^|-?^|-h2^|-??
  ECHO:
  ECHO -------------------
@@ -673,11 +492,10 @@
  ECHO -------------------
  ECHO  -?,  /H ..... Display This Help Message  (also --HELP)
  ECHO  -??, /H2 .... Display Extended Help Message
- ECHO       /S ..... Schedule the Job, But Don't Execute It
- ECHO       /U ..... Unschedule the Job Only, Without Executing It First
- ECHO       /N ..... Execute the Job, But Do Not Schedule It
- ECHO       /Z ..... Test/Diagnostics Mode {execute test configuration}
- ECHO       /D ..... Delete Current Archive Before Adding New Files
+ ECHO  /S,  .  ..... Schedule the Job, But Don't Execute It
+ ECHO  /U,  -  ..... Unschedule the Job Only, Without Executing It First
+ ECHO  /N,  @  ..... Execute the Job without Scheduling It
+ ECHO  /Z,  *  ..... Do Not Wait for a Delay When Executed on a VM
  ECHO:
 
  IF ERRORLEVEL 8 IF NOT ERRORLEVEL 16 (
@@ -685,10 +503,10 @@
 	 ECHO SYNTAX EXAMPLES:
 	 ECHO ----------------
 	 ECHO  %~n0
-	 ECHO  %~n0 "" -n
-	 ECHO  %~n0 MyBackup!@SS_EXT!
-	 ECHO  %~n0 SpecialBackups!@SS_EXT!"
 	 ECHO  %~n0 -u
+	 ECHO  %~n0 1000000000
+	 ECHO  %~n0 "200,000,000" /s
+	 ECHO  %~n0 "2,000,000,000" -N
 	 ECHO  %~n0 -?
 	 ECHO:
 	 ECHO ------------
@@ -696,17 +514,10 @@
 	 ECHO ------------
 	 ECHO  * Parameters surrounded by ^<^> are mandatory.
 	 ECHO  * Parameters surrounded by [] are optional.
-	 ECHO:
 	 ECHO  * Options are case-insensitive, and can be prefaced by "-" or "/".
-	 ECHO:
-	 ECHO  * Any parameters which contain spaces should be surrounded by quotes.
-	 ECHO    Shortnames *can* be surrounded by quotes if you choose, but it is not
-	 ECHO    mandatory by any means.
-	 ECHO:
-	 ECHO  * Test mode ^(/Z^) will result in a recorded errorlevel of *.
-	 ECHO:
-	 ECHO  * To save an archive from being pruned, it must be moved to a different
-	 ECHO    folder, or saved with a name that does not include "SystemState-".
+	 ECHO  * If no number is provided, a default of 500,000 will be used.
+	 ECHO  * If the provided number is ^(^< 2 or ^> 5,000,000^) then the default will be used.
+	 ECHO  * Quotation marks are optional
  )
  CALL :ShowStatus "FINISHED"
-                             
+                        

@@ -1,5 +1,5 @@
-@REM - ASB (12 Dec 2013 // 14 Aug 2025 / 14 Jul 2024 / 10 May 2024 / 02 May 2024 / 28 Apr 2024 / 12 Jan 2024 / 16 Oct 2023): Execute One Command With Multiple Hosts as the Parameter
 @ECHO OFF
+ rem - ASB (12 Dec 2013 // 14 Aug 2025 / 14 Jul 2024 / 10 May 2024 / 02 May 2024 / 28 Apr 2024 / 12 Jan 2024 / 16 Oct 2023): Execute One Command With Multiple Hosts as the Parameter
 
 
  rem -- Generate Filtered CMD Title
@@ -31,7 +31,7 @@
 
  rem -- Initialize Environment Variables
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.5.0.550 b
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.5.0.550 c
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=2 -c "H- HELP- ?-" -x "??- H2-" -s %*

@@ -6,7 +6,7 @@
  rem Created On: 08 Oct 2014
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 29 Sep 2025 / 18 Sep 2025 / 01 Sep 2025 / 31 Aug 2025
+ rem Updated On: 17 May 2026 / 03-05 May 2026 / 13 Jan 2026 / 01 Jan 2026 / 08 Dec 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -174,7 +174,7 @@
  :::  (Nov 2018) v7.0 -- Added integrity verification of the BIOS and other System
  :::  Configuration elements, using SYSTEMINFO, COMPINFO, WMIC, other native Windows
  :::  utilities, and a few utilities from Microsoft's SysInternals repository;
- :::  --- The DB HASH UPGRADE warning routines have been refactored, relying on
+ :::  -- The DB HASH UPGRADE warning routines have been refactored, relying on
  :::  the recently released FileHash v2.7;
  :::
  :::  (Jan 2019) v7.1 -- Reduced the default amount of System Configuration info
@@ -244,6 +244,18 @@
  :::  (Sep 2025) v10.2 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
  :::  -- Replaced instances of FORFILES with FILEHASH --JF;
  :::
+ :::  (Nov 2025) v10.3 -- Corrected storage related summary info;
+ :::  -- Added a summary of file changes made by extension;
+ :::
+ :::  (Dec 2025) v10.4 -- Support a minimim file size to check for, using the
+ :::  %@MIN_FILE_SIZE% variable. Requires FileHash v6.0 or greater;
+ :::
+ :::  (Jan 2026) v10.5 -- Update Syslog logging routine for script metrics;
+ :::
+ :::  (May 2026) v10.6 -- Provide change summary by binaries, scripts, configs;
+ :::  -- Corrected counting inaccuracies in the extension summaries;
+ :::  -- Added @DIFF_LEN_xxxxx variables to control DIFF search length;
+ :::
  ::: --------
  :::  NOTES:
  ::: --------
@@ -251,10 +263,11 @@
  :::    and trailing spaces will still be trimmed during FINDSTR processing;
  :::
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -271,18 +284,18 @@
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 29 Sep 2025 / 18 Sep 2025 / 01 Sep 2025 / 31 Aug 2025 / 01 Feb 2025
+ rem === Updated On: 17 May 2026 / 03 May 2026 / 20 Jan 2026 / 08 Dec 2025
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v10.2.0.1020 k
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v10.6.0.1061
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
  IF ERRORLEVEL 1 IF NOT ERRORLEVEL 16 GOTO :HelpMessage
 
  rem -- Check for Essential Utilities and/or Scripts
- SET #BWUTILS="%~dp0SetDrive.BAT" CHANGECASE.EXE FILEHASH.EXE MAKESTRING.EXE READABLE.EXE SUBSTRING.EXE
- SET #MSUTILS=AUDITPOL.EXE AUTORUNSC.EXE DRIVERQUERY.EXE FINDSTR.EXE SCHTASKS.EXE SORT.EXE SYSTEMINFO.EXE
+ SET #BWUTILS="%~dp0SetDrive.BAT" CCALC.EXE CHANGECASE.EXE FILEHASH.EXE MAKESTRING.EXE READABLE.EXE SUBSTRING.EXE
+ SET #MSUTILS=AUDITPOL.EXE AUTORUNSC.EXE DRIVERQUERY.EXE FINDSTR.EXE IPCONFIG.EXE NET.EXE ROUTE.EXE SCHTASKS.EXE SORT.EXE SYSTEMINFO.EXE
  SET #O_UTILS=BLAT.EXE DIFF.EXE GETSYS.EXE SYSLOGGEN.EXE ZIP.EXE
  FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% %#O_UTILS% -o WMIC.EXE DISM.EXE
  IF ERRORLEVEL 64 (CALL :LogCriticalFailure ABORTED - MISSING CRITICAL FILES & GOTO :ExitBatch)
@@ -295,17 +308,20 @@
  SET @RCPT-TO=Ops@Domain.tld
  SET @ALERT-TO=Ops@Domain.tld
  SET @WATCHFOR="\System32" "\SysWOW64" "\Installer\" "\assembly\Native"
- SET @DONTSCAN="Backups\Scripts\TestBackup" "Backups\TestBackup" "data\application" "dropbox.cache" "dropbox.attr" "pagefile.sys" "swapfile.sys" "hiberfil.sys"
+ SET @DONTSCAN="Backups\Scripts\TestBackup" "Backups\TestBackup" "data\application" "desktop.ini" "dropbox.cache" "dropbox.attr" "pagefile.sys" "swapfile.sys" "hiberfil.sys"
  SET @EXE2SCAN=.EXE .COM .MSI .MSU .PYD .OCX .DLL .SYS
  SET @SCR2SCAN=.BAT .CMD .KIX .PS1 .VBS .PL .PY .PYC .PYX .PHP .JAVA .SQL
- SET @CFG2SCAN=.config hosts
+ SET @CFG2SCAN=.config .ini .json .yml .yaml \hosts
+ SET @MIN_FILE_SIZE=1
  SET @MAX_FILE_SIZE=500,000,000
+ SET @DIFF_LEN_BIG=800
+ SET @DIFF_LEN_SMALL=150
  SET @EXTENDED_CONFIG=
  SET @NOACCESS=:::DENIED:::
 
  rem -- Default Hash Values
- SET @HASHOPT=SHA256
- SET @FALLBACK_HASH=XXHASH64
+ SET @HASHOPT=BLAKE3
+ SET @FALLBACK_HASH=SHA256
  SET @LOG_HASH=BLAKE3
  SET @HASH_MATRIX="MD5:32:"":+"  "SHA1:40"  "SHA2 SHA2_256:64:SHA256"  "SHA2_384:96:SHA384"  "SHA2_512:128:SHA512"  "SHA3:64:SHA3_256"  "SHA3_384:96"  "SHA3_512 BLAKE2B:128"  "BLAKE2S BLAKE3:64"  "XX64:16:XXHASH64"  "MH3 MURMURHASH3 MURMURHASH3_128 MURMURHASH3_X64:32:MURMURHASH3_X64_128"  "MURMURHASH3_X86:32:MURMURHASH3_X86_128"
 
@@ -339,6 +355,7 @@
  CALL :GetInteger @MAXROWS "%@MAX_LOG_ROWS%" 199 030 399
 
  rem -- Validate Legitimate File Size Exemptions for FILEHASH processing
+ CALL :GetInteger @MIN_SIZE "%@MIN_FILE_SIZE%" 000000001 0001 9999999999
  CALL :GetInteger @MAX_SIZE "%@MAX_FILE_SIZE%" 500000000 5000 9999999999
 
  rem -- Process Special Command-line Parameters
@@ -374,6 +391,9 @@
  SET @EXT2SCAN=%@EXE2SCAN% %@SCR2SCAN% %@CFG2SCAN%
  SET @INCLUDE=& FOR %%T IN (%@EXT2SCAN%) DO SET @INCLUDE=!@INCLUDE! *%%~T
 
+ rem -- Generate Readable Search/Replace Variable
+ SET @SEARH-REPLACE=%TEMP%\S-R.%@FILESTAMP%
+
  rem -- Standard Log Variables
  SET @ZIPPATH=%@STORAGE%\Logs\ZipFiles
  SET @ARCHIVE=%@ZIPPATH%\%COMPUTERNAME%-%~n0.%@ZIPSTAMP%
@@ -383,7 +403,7 @@
  SET @LOGFILE=%@LFORMAT%.%@FILESTAMP%
  FOR %%L IN (SYSINFO MONITOR REPORT SUMMARY TEMPLOG ERRORS CHECKSUM) DO SET @%%L=%@LFORMAT%.%%L.%@FILESTAMP%
  SET @LOGLIST="%@LOGFILE%" "%@SYSINFO%" "%@MONITOR%" "%@REPORT%" "%@ERRORS%"
- SET @CLEANUP="%@TEMPLOG%" "%@SUMMARY%" "%@MONITOR%" "%@REPORT%" "%@ERRORS%"
+ SET @CLEANUP="%@TEMPLOG%" "%@SUMMARY%" "%@MONITOR%" "%@REPORT%" "%@ERRORS%" "%@SEARH-REPLACE%"
 
  rem -- Key Variable Verification
  FOR %%V IN (ALL_PARAMS FILEHASH EXT2SCAN WATCHFOR INCLUDE KEEP_HISTORICAL) DO IF NOT DEFINED @%%~V (
@@ -566,7 +586,7 @@
 
  rem ==========================================================================
  rem === Generate Log Header
- rem === Updated On: 18 Sep 2025 / 30 Aug 2024 / 03 Oct 2019 / 08 Mar 2019
+ rem === Updated On: 04 Dec 2025 / 18 Sep 2025 / 30 Aug 2024 / 03 Oct 2019
  rem ==========================================================================
 :GenerateHeader
  SET @EXCLUDED=*NONE*& IF DEFINED @SKIPDRIVES SET @EXCLUDED=%@SKIPDRIVES%
@@ -591,6 +611,7 @@
 	 ) ELSE (
 		 ECHO  --- !@DONTSCAN: =, !
 	 )
+	 IF DEFINED @MIN_SIZE ECHO  --- Files ^<%@MIN_SIZE% bytes will be ignored
 	 IF DEFINED @MAX_SIZE ECHO  --- Files ^>%@MAX_SIZE% bytes will be ignored
 	 ECHO:
 	 ECHO CRITICAL FILES/FOLDERS TO WATCH:
@@ -605,7 +626,7 @@
 
  rem ==========================================================================
  rem === Evaluate System Configuration Info
- rem === Updated On: 18 Sep 2025 / 19 Mar 2021 / 28 Nov 2018
+ rem === Updated On: 17 May 2026 / 14 Oct 2025 / 18 Sep 2025 / 19 Mar 2021 / 28 Nov 2018
  rem ==========================================================================
 :EvaluateSystemConfig
  SET @LINES2SKIP="Memory: A;Memory: I;^Available;^Executing: ;^###;^---;%%$;%@VER%"
@@ -626,8 +647,8 @@
 	 rem -- Compare Reports, If Previous Report Available
 	 IF EXIST !@SYSCONFIG_OLD! (
 		 CALL :WriteLn "FINDING CONFIG CHANGES.." 1
-		 DIFF -i -y --suppress-common-lines --width 150 !@SYSCONFIG_OLD! !@SYSCONFIG_NEW! >!@SYSCONFIG_DIF! 2>NUL
-		 FOR /F "TOKENS=3" %%C IN ('READABLE !@SYSCONFIG_DIF! --TALLY-ONLY') DO SET @CONFIG_CHANGES=%%C
+		 DIFF -i -y --suppress-common-lines --width %@DIFF_LEN_SMALL% !@SYSCONFIG_OLD! !@SYSCONFIG_NEW! >!@SYSCONFIG_DIF! 2>NUL
+		 FOR /F %%C IN ('READABLE !@SYSCONFIG_DIF! --TO -Q 2^>NUL') DO SET @CONFIG_CHANGES=%%C
 
 		 ECHO  CHANGED CONFIG ITEMS: !@CONFIG_CHANGES!
 		 MAKESTRING ":" 70
@@ -646,23 +667,19 @@
 			 ECHO:
 			 ECHO *** The System Configuration Info Has Been Changed ***
 			 ECHO %@DIVIDER-%
-			 READABLE !@SYSCONFIG_CHG!
-			 ECHO %@DIVIDER-%
-			 ECHO:
-			 ECHO:
+			 READABLE !@SYSCONFIG_CHG! --NL 2 --LC "-" --DL 1
 		 ) >>"%@MONITOR%" 2>NUL
 
 	 ) ELSE (
 		 SET @CHANGES=*
 		 SET @STATUS=*** NEW SYSCONFIG CHECK ***
 		 SET @JOBSTATUS= // !@STATUS!
-		 FOR /F "TOKENS=3" %%C IN ('READABLE !@SYSCONFIG_NEW! --TALLY-ONLY') DO SET @CONFIG_CHANGES=%%C
+		 FOR /F %%C IN ('READABLE !@SYSCONFIG_NEW! --TO -Q 2^>NUL') DO SET @CONFIG_CHANGES=%%C
 
 		 CALL :WriteLn "FIRST TIME ASSESSMENT..." 2
 		 ECHO  FIRST-TIME CONFIG CHECK w/!@CONFIG_CHANGES! Elements
 		 MAKESTRING "<" 70
-		 READABLE !@SYSCONFIG_NEW!
-		 ECHO:
+		 READABLE !@SYSCONFIG_NEW! --NL
 	 )
  ) >>"%@LOGFILE%" 2>&1
  CALL :ProcessLogs SYSCONFIG "%@FLAG_EXTENSIONS%"
@@ -671,7 +688,7 @@
 
  rem ==========================================================================
  rem === Obtain and Evaluate Current Audit Policy
- rem === Updated On: 18 Sep 2025 / 28 Jul 2024 / 10 Jan 2022 / 23 Jan 2019
+ rem === Updated On: 17 May 2026 / 14 Oct 2025 / 18 Sep 2025 / 28 Jul 2024 / 10 Jan 2022 / 23 Jan 2019
  rem ==========================================================================
 :EvaluateAuditPolicy
  FOR %%E IN (NEW OLD %@TEMP_EXTENSIONS% %@FLAG_EXTENSIONS%) DO SET @POLICY_%%E="%@LOGPATH%\AUDIT-POLICY.%%E"
@@ -696,8 +713,8 @@
 	 rem -- Compare Reports, If Previous Report Available
 	 IF EXIST !@POLICY_OLD! (
 		 CALL :WriteLn "FINDING POLICY CHANGES.." 1
-		 DIFF -i -y --suppress-common-lines --width 128 !@POLICY_OLD! !@POLICY_NEW! >!@POLICY_DIF! 2>NUL
-		 FOR /F "TOKENS=3" %%C IN ('READABLE !@POLICY_DIF! -F "^|" --TALLY-ONLY') DO SET @POLICY_CHANGES=%%C
+		 DIFF -i -y --suppress-common-lines --width %@DIFF_LEN_SMALL% !@POLICY_OLD! !@POLICY_NEW! >!@POLICY_DIF! 2>NUL
+		 FOR /F %%C IN ('READABLE !@POLICY_DIF! -F "^|" --TO -Q 2^>NUL') DO SET @POLICY_CHANGES=%%C
 
 		 ECHO  CHANGED POLICY ITEMS: !@POLICY_CHANGES!
 		 MAKESTRING ":" 70
@@ -716,23 +733,19 @@
 			 ECHO:
 			 ECHO *** The Windows Audit Policy Has Been Changed ***
 			 ECHO %@DIVIDER-%
-			 READABLE !@POLICY_CHG!
-			 ECHO %@DIVIDER-%
-			 ECHO:
-			 ECHO:
+			 READABLE !@POLICY_CHG! --NL 2 --LC "-" --DL 1
 		 ) >>"%@MONITOR%" 2>NUL
 
 	 ) ELSE (
 		 SET @CHANGES=*
 		 SET @STATUS=*** NEW POLICY CHECK ***
 		 SET @JOBSTATUS=!@JOBSTATUS! // !@STATUS!
-		 FOR /F "TOKENS=3" %%C IN ('READABLE !@POLICY_NEW! -F "^|" --TALLY-ONLY') DO SET @POLICY_CHANGES=%%C
+		 FOR /F %%C IN ('READABLE !@POLICY_NEW! -F "^|" --TO -Q 2^>NUL') DO SET @POLICY_CHANGES=%%C
 
 		 CALL :WriteLn "FIRST TIME ASSESSMENT..." 2
 		 ECHO  FIRST-TIME POLICY AUDIT w/!@POLICY_CHANGES! Elements
 		 MAKESTRING "<" 70
-		 READABLE !@POLICY_NEW!
-		 ECHO:
+		 READABLE !@POLICY_NEW! --NL
 	 )
  ) >>"%@LOGFILE%" 2>&1
  CALL :ProcessLogs POLICY "%@FLAG_EXTENSIONS%"
@@ -741,11 +754,14 @@
 
  rem ==========================================================================
  rem === Obtain File Hashes and Assess Each Drive
- rem === Updated On: 18 Sep 2025 / 30 Aug 2024 / 28 Jul 2024 / 19 Mar 2021
+ rem === Updated On: 17 May 2026 / 03 May 2026 / 08 Dec 2025 / 28 Nov 2025 / 10 Nov 2025
  rem ==========================================================================
 :AssessDrives
  CALL :WriteLn2 "DRIVE[S] TO ASSESS...... %@DRIVES2SCAN%" >NUL
- CALL :WriteLn "DRIVE[S] TO EXCLUDE..... %@EXCLUDED%"    >NUL
+ CALL :WriteLn  "DRIVE[S] TO EXCLUDE..... %@EXCLUDED%"    >NUL
+
+ rem -- Generate Search/Replace content for READABLE
+ ECHO \t; >"%@SEARH-REPLACE%"
 
  ( rem -- Write to Log
 	 FOR %%D IN (%@DRIVES2SCAN%) DO (
@@ -766,8 +782,10 @@
 			 CALL :ProcessLogs HASH
 
 			 rem -- Get Volume Name
-			 FOR /F "TOKENS=5*" %%i IN ('DIR %%~D\ 2^>NUL ^| FIND "Volume in drive"') DO SET @VOL_%%D=%%j
-			 SET @VOL=!@VOL:"=!
+			 FOR /F "TOKENS=4-5*" %%i IN ('VOL %%~D 2^>NUL ^| FIND "Volume in drive"') DO (
+				 SET @VOL_%%i=%%k
+				 SET @VOL_%%i=!@VOL_%%i:"=!
+			 )
 
 			 rem -- Enable .ENC (Encryption) Flag if current Hash Database is Different from Current Encryption Mode
 			 CALL :WriteLn "PRE-PROCESSING LOGS....."
@@ -783,12 +801,12 @@
 
 			 rem -- Create/Process Database of File Hashes
 			 CALL :WriteLn "CREATING HASH DATABASE.."
-			 %@FILEHASH% --%@HASHOPT% -f -m "%@MAX_SIZE%" -o !@HASH_DB! -e "%@TEMPLOG%" -r -d "%%~D" %@INCLUDE% 2>NUL
+			 %@FILEHASH% --%@HASHOPT% -f --m2 "%@MIN_SIZE%" -m "%@MAX_SIZE%" -o !@HASH_DB! -e "%@TEMPLOG%" -r -d "%%~D" %@INCLUDE% 2>NUL
 			 COPY !@HASH_DB! !@HASH_NEW! /Y >NUL
 
 			 rem -- Count the Files Scanned
 			 CALL :WriteLn "VERIFYING FILE COUNT...."
-			 FOR /F "TOKENS=3" %%C IN ('READABLE !@HASH_NEW! -F "*" --TALLY-ONLY') DO FOR %%I IN (TOTAL_SCAN SCANNED) DO SET /A @%%I+=%%C
+			 FOR /F %%C IN ('READABLE !@HASH_NEW! -F "*" --TO -Q 2^>NUL') DO FOR %%I IN (TOTAL_SCAN SCANNED) DO SET /A @%%I+=%%C
 
 			 rem -- Compare Hashes, If Possible
 			 IF EXIST !@HASH_OLD! (
@@ -797,44 +815,42 @@
 				 SORT /+%@SORTLEN% !@HASH_OLD! /O !@HASH_OLD!
 
 				 CALL :WriteLn "COMPARING FILE HASHES..."
-				 DIFF -i -y --suppress-common-lines --width 520 !@HASH_OLD! !@HASH_NEW! >!@HASH_DIF! 2>NUL
+				 DIFF -i -y --suppress-common-lines --width %@DIFF_LEN_BIG% !@HASH_OLD! !@HASH_NEW! >!@HASH_DIF! 2>NUL
 
 				 CALL :WriteLn "DISPLAY FINAL REPORTS..." 2
-				 FOR /F "TOKENS=3" %%C IN ('READABLE !@HASH_DIF! -F "^|" --TALLY-ONLY') DO FOR %%I IN (TOTAL_CHG CHANGED) DO SET /A @%%I+=%%C
-				 FOR /F "TOKENS=3" %%C IN ('READABLE !@HASH_DIF! -F "^>" --TALLY-ONLY') DO FOR %%I IN (TOTAL_ADD ADDED)   DO SET /A @%%I+=%%C
-				 FOR /F "TOKENS=3" %%C IN ('READABLE !@HASH_DIF! -F "^<" --TALLY-ONLY') DO FOR %%I IN (TOTAL_DEL DELETED) DO SET /A @%%I+=%%C
+				 FOR /F %%C IN ('READABLE !@HASH_DIF! -F "^|" --TO -Q 2^>NUL') DO FOR %%I IN (TOTAL_CHG CHANGED) DO SET /A @%%I+=%%C
+				 FOR /F %%C IN ('READABLE !@HASH_DIF! -F "^>" --TO -Q 2^>NUL') DO FOR %%I IN (TOTAL_ADD ADDED)   DO SET /A @%%I+=%%C
+				 FOR /F %%C IN ('READABLE !@HASH_DIF! -F "^<" --TO -Q 2^>NUL') DO FOR %%I IN (TOTAL_DEL DELETED) DO SET /A @%%I+=%%C
 
 				 ECHO  [!TIME: =0!] CHANGED FILES: !@CHANGED!
 				 MAKESTRING ":" 70
-				 FOR /F "TOKENS=2 DELIMS=*|<>" %%F IN ('READABLE !@HASH_DIF! -F "^|"') DO ECHO  ~ %%~D\%%~F >>!@HASH_CHG!
+				 FOR /F "TOKENS=2 DELIMS=*|<>" %%F IN ('READABLE !@HASH_DIF! -F "^|" -X -R "%@SEARH-REPLACE%" 2^>NUL') DO ECHO  ~ %%~D\%%~F >>!@HASH_CHG!
 				 IF EXIST !@HASH_CHG! SORT !@HASH_CHG!
 				 ECHO:
 				 ECHO:
 
 				 ECHO  [!TIME: =0!] ADDED FILES: !@ADDED!
 				 MAKESTRING ">" 70
-				 FOR /F "TOKENS=3 DELIMS=*|<>" %%F IN ('READABLE !@HASH_DIF! -F "^>"') DO ECHO  + %%~D\%%~F >>!@HASH_ADD!
+				 FOR /F "TOKENS=3 DELIMS=*|<>" %%F IN ('READABLE !@HASH_DIF! -F "^>" -X -R "%@SEARH-REPLACE%" 2^>NUL') DO ECHO  + %%~D\%%~F >>!@HASH_ADD!
 				 IF EXIST !@HASH_ADD! SORT !@HASH_ADD!
 				 ECHO:
 				 ECHO:
 
 				 ECHO  [!TIME: =0!] DELETED FILES: !@DELETED!
 				 MAKESTRING "<" 70
-				 FOR /F "TOKENS=2 DELIMS=*|<>" %%F IN ('READABLE !@HASH_DIF! -F "^<"') DO ECHO  - %%~D\%%~F >>!@HASH_DEL!
+				 FOR /F "TOKENS=2 DELIMS=*|<>" %%F IN ('READABLE !@HASH_DIF! -F "^<" -X -R "%@SEARH-REPLACE%" 2^>NUL') DO ECHO  - %%~D\%%~F >>!@HASH_DEL!
 				 IF EXIST !@HASH_DEL! SORT !@HASH_DEL!
 				 ECHO:
 
 				 rem -- Log Monitored Changes to File
 				 FOR %%L IN (CHG ADD DEL) DO IF EXIST !@HASH_%%L! (
 					 IF DEFINED @WATCHFOR FINDSTR /I /L "%@WATCHFOR:"=%" !@HASH_%%L! >"%@TEMPLOG%"
-					 FOR /F "TOKENS=3" %%c IN ('READABLE "%@TEMPLOG%" -F "\" --TALLY-ONLY') DO IF NOT "%%~c"=="0" (
+					 FOR /F %%c IN ('READABLE "%@TEMPLOG%" -F "\" --TO -Q 2^>NUL') DO IF NOT "%%~c"=="0" (
 						 SET /A @WATCHCOUNT+=%%c
 						 ECHO:
 						 ECHO [!TIME: =0!] *** %%L *** ON DRIVE %%D = %%c
 						 ECHO %@DIVIDER-%
-						 READABLE "%@TEMPLOG%"
-						 ECHO:
-						 ECHO:
+						 READABLE "%@TEMPLOG%" --NL 2
 					 ) >>"%@MONITOR%" 2>NUL
 				 )
 
@@ -844,11 +860,13 @@
 				 IF EXIST !@HASH_ZZZ! SET @STATUS-%%~D=*** HASH DB RESET [%%~D] ***
 				 IF EXIST !@HASH_ENC! SET @STATUS-%%~D=*** HASH ALGORITHM CHANGE [%%~D] ***
 				 FOR %%I IN (TOTAL_ADD ADDED) DO SET /A @%%I+=@SCANNED
+				 FOR %%C IN (CHG DEL) DO TYPE NUL >>!@HASH_%%~C!
+				 TYPE "!@HASH_NEW!" >>!@HASH_ADD!
 
 				 CALL :WriteLn "INITIAL [RE]ASSESSMENT.." 2
 				 ECHO  [!TIME: =0!] ADDED FILES: !@ADDED!
 				 MAKESTRING "<" 70
-				 FOR /F "TOKENS=2 DELIMS=*" %%F IN ('READABLE "!@HASH_NEW!" --SK "%@NOACCESS%"') DO ECHO %%~D\%%~F
+				 FOR /F "TOKENS=2 DELIMS=*" %%F IN ('READABLE "!@HASH_NEW!" --SK "%@NOACCESS%" 2^>NUL') DO ECHO %%~D\%%~F
 				 ECHO:
 			 )
 
@@ -870,7 +888,6 @@
  CALL :WriteLn2 "UPDATING SUMMARY INFO..." >NUL
  IF NOT "!@TOTAL_CHG!/!@TOTAL_ADD!/!@TOTAL_DEL!/!@CONFIG_CHANGES!/!@POLICY_CHANGES!"=="0/0/0/0/0" SET @CHANGES=Y
  CALL :GetSummaryCounts 2 >>"%@MONITOR%" 2>&1
- ECHO:
  %@PAUSE_IF_DEBUG%
 
 
@@ -910,7 +927,7 @@
 
  rem ==========================================================================
  rem === Compress Log Files and Send via Email To Appropriate Group(s)
- rem === Updated On: 18 Sep 2025 / 01 Sep 2025 / 31 Aug 2025 / 10 Dec 2019 / 25 Jan 2018
+ rem === Updated On: 28 Nov 2025 / 11 Nov 2025 / 14 Oct 2025 / 18 Sep 2025
  rem ==========================================================================
 :SendLog
  CALL :SaveJobHistory
@@ -922,7 +939,7 @@
  SET @FILELIST=& FOR %%F IN ("%@SYSINFO%" "%@MONITOR%" "%@TIMINGS%" "%@LOGFILE%") DO IF EXIST %%F SET @FILELIST=!@FILELIST! %%F
 
  rem -- Determine If Email Status Should Be Sent
- IF /I "%@MAIL%"=="TRUE" IF /I NOT "%@CHANGES%"=="N" SET @MAILIT=TRUE
+ IF /I "%@MAIL%"=="TRUE"  IF /I NOT "%@CHANGES%"=="N"    SET @MAILIT=TRUE
  IF /I "%@MAIL%"=="WATCH" IF /I NOT "%@WATCHCOUNT%"=="0" SET @MAILIT=TRUE
 
  ( rem -- Write to Log
@@ -935,7 +952,7 @@
 	 ECHO:
 	 FILEHASH --%@LOG_HASH% -g "%@CHECKSUM%" -d "%@ZIPPATH%" "%COMPUTERNAME%-%~n0*"
 	 ECHO:
-	 READABLE "%@CHECKSUM%" -A
+	 TYPE "%@CHECKSUM%"
 	 ECHO:
  ) >>"%@LOGFILE%" 2>&1
 
@@ -950,11 +967,9 @@
 		 ECHO:
 		 FOR %%F IN (!@FILELIST! "%@CHECKSUM%" "%@ARCHIVE%") DO DIR "%%~F" | FIND /I "%%~nxF"
 		 ECHO:
-		 READABLE "%@CHECKSUM%" -A -F "%@ZIPSTAMP%"
-		 ECHO %@DIVIDER-%
-		 ECHO:
+		 READABLE "%@CHECKSUM%" -A -F "%@ZIPSTAMP%" --NL 1 --LC "-" --DL
 	 ) >"%@TEMPLOG%" 2>&1
-	 FOR %%O IN (CON "%@SUMMARY%" "%@LOGFILE%") DO READABLE "%@TEMPLOG%" -O %%O
+	 FOR %%O IN (CON "%@SUMMARY%" "%@LOGFILE%") DO READABLE "%@TEMPLOG%" >> %%O
 
 	 ECHO:
 	 BLAT "%@SUMMARY%" -f %@MAILSENDER% %@RCPT-TO% -s "%~n0 Job on %COMPUTERNAME%" -attach "%@ARCHIVE%","%@CHECKSUM%"
@@ -965,12 +980,13 @@
 
  rem ==========================================================================
  rem === Perform Log Management/Maintenance (Or Copy Them for Debug Purposes)
- rem === Updated On: 18 Sep 2025 / 12 Jan 2015 / 24 Dec 2014
+ rem === Updated On: 13 Nov 2025 / 18 Sep 2025 / 12 Jan 2015 / 24 Dec 2014
  rem ==========================================================================
 :LogMaint
  CALL :WriteLn2 "PERFORMING LOG CLEANUP..." >NUL
 
  COPY "%@LOGFILE%" + "%@MONITOR%" "%@LOGFILE%" /Y
+ NOW \n\*%~n0 Job Completed - [\v] - %@VER%\n\* >>"%@LOGFILE%" 2>&1
 
  IF /I "%DEBUG%"=="COPY" FOR %%L IN (%@LOGLIST% %@CLEANUP%) DO IF EXIST %%L COPY %%L "%TEMP%" /Y
 
@@ -1077,7 +1093,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Get Count of Total, Added, and Changed Files
- rem === Updated On: 18 Sep 2025 / 14 Jul 2021 / 05 May 2020
+ rem === Updated On: 03 May 2026 / 29 Nov 2025 / 18 Sep 2025 / 14 Jul 2021
  rem ==========================================================================
 :CurrentTally
  rem %1 = Target Drive(s)
@@ -1086,6 +1102,16 @@
  rem %4 = Value to Display for Files Added
  rem %5 = Value to Display for Files Deleted
  rem %6 = Additional Text To Display
+
+ rem -- Obtain Statistics by Extension
+ FOR %%E IN (%@EXT2SCAN%) DO (
+	 FOR /F %%C IN ('READABLE %@HASH_CHG% -F "%%~E " --TO -Q 2^>NUL') DO SET /A @CHG%%E+=%%C
+	 FOR /F %%C IN ('READABLE %@HASH_ADD% -F "%%~E " --TO -Q 2^>NUL') DO SET /A @ADD%%E+=%%C
+	 FOR /F %%C IN ('READABLE %@HASH_DEL% -F "%%~E " --TO -Q 2^>NUL') DO SET /A @DEL%%E+=%%C
+	 IF NOT DEFINED @CHG%%E SET @CHG%%E=0
+	 IF NOT DEFINED @ADD%%E SET @ADD%%E=0
+	 IF NOT DEFINED @DEL%%E SET @DEL%%E=0
+ )
 
  rem -- For Scans involving a Single Drive, Display Final Stats Only
  IF %@D2S_COUNT% LEQ 1 IF /I NOT "%~6"=="TOTAL" EXIT /B
@@ -1096,10 +1122,10 @@
 	 SET @OVERVIEW=
  )
 
- CALL :PadLeft @TOT "%~2" "." 16
- CALL :PadLeft @CHG "%~3" "." 16
- CALL :PadLeft @ADD "%~4" "." 16
- CALL :PadLeft @DEL "%~5" "." 16
+ CALL :PadLeft @TOT "%~2" "." 29
+ CALL :PadLeft @CHG "%~3" "." 29
+ CALL :PadLeft @ADD "%~4" "." 29
+ CALL :PadLeft @DEL "%~5" "." 29
 
 ( rem -- Write to Log
 	 CALL :WriteLn "SCANNING SUMMARY for.... %~1 !@OVERVIEW!" 0 . -
@@ -1110,7 +1136,7 @@
 	 ECHO %@DIVIDER-%
 
 	 rem -- Show Disk Stats
-	 FOR %%d IN (%~1) DO FOR /F "TOKENS=*" %%v IN ('PSINFO -d 2^>NUL ^| FIND /I " %%d: Fixed "') DO (
+	 FOR %%d IN (%@DRV%) DO FOR /F "TOKENS=*" %%v IN ('PSINFO -d 2^>NUL ^| FIND /I " %%d: Fixed "') DO (
 		 CALL :CleanDriveInfo "%%~v" "!@VOL_%%d!"
 	 )
 	 ECHO %@DIVIDER-%
@@ -1147,18 +1173,89 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Display Summary Counts for Policy Changes & Watched Files
- rem === Updated On: 28 Nov 2018 / 13 May 2016
+ rem === Updated On: 03-05 May 2026 / 29 Nov 2025 / 28 Nov 2018 / 13 May 2016
  rem ==========================================================================
 :GetSummaryCounts
  rem %1 = Optional Number of Blank Lines After Summary
 
- CALL :PadLeft @WC "!@WATCHCOUNT!" "." 11
- CALL :PadLeft @CC "!@CONFIG_CHANGES!" "." 11
- CALL :PadLeft @PC "!@POLICY_CHANGES!" "." 12
+ rem -- Generate Aggregated Stats just one time
+ IF NOT DEFINED @BIN_CHG (
+	 rem -- Obtain Summary Statistics for Binaries
+	 FOR %%E IN (%@EXE2SCAN%) DO (
+		 SET /A @BIN_CHG+=@CHG%%E
+		 SET /A @BIN_ADD+=@ADD%%E
+		 SET /A @BIN_DEL+=@DEL%%E
+		 IF NOT DEFINED @BIN_CHG SET @BIN_CHG=0
+		 IF NOT DEFINED @BIN_ADD SET @BIN_ADD=0
+		 IF NOT DEFINED @BIN_DEL SET @BIN_DEL=0
+	 )
 
+	 rem -- Obtain Summary Statistics for Scripts
+	 FOR %%E IN (%@SCR2SCAN%) DO (
+		 SET /A @SCR_CHG+=@CHG%%E
+		 SET /A @SCR_ADD+=@ADD%%E
+		 SET /A @SCR_DEL+=@DEL%%E
+		 IF NOT DEFINED @SCR_CHG SET @SCR_CHG=0
+		 IF NOT DEFINED @SCR_ADD SET @SCR_ADD=0
+		 IF NOT DEFINED @SCR_DEL SET @SCR_DEL=0
+	 )
+
+	 rem -- Obtain Summary Statistics for Configuration Files
+	 FOR %%E IN (%@CFG2SCAN%) DO (
+		 SET /A @CFG_CHG+=@CHG%%E
+		 SET /A @CFG_ADD+=@ADD%%E
+		 SET /A @CFG_DEL+=@DEL%%E
+		 IF NOT DEFINED @CFG_CHG SET @CFG_CHG=0
+		 IF NOT DEFINED @CFG_ADD SET @CFG_ADD=0
+		 IF NOT DEFINED @CFG_DEL SET @CFG_DEL=0
+	 )
+ )
+
+ rem -- Obtain Statistics by Extension
+ IF NOT "!@TOTAL_CHG!/!@TOTAL_ADD!/!@TOTAL_DEL!"=="0/0/0" (
+	 CALL :PadLeft #T_CHG "!@TOTAL_CHG!" "." 7
+	 CALL :PadLeft #T_ADD "!@TOTAL_ADD!" "." 7
+	 CALL :PadLeft #T_DEL "!@TOTAL_DEL!" "." 7
+	 CALL :PadLeft #B_CHG "!@BIN_CHG!"   "." 7
+	 CALL :PadLeft #B_ADD "!@BIN_ADD!"   "." 7
+	 CALL :PadLeft #B_DEL "!@BIN_DEL!"   "." 7
+	 CALL :PadLeft #S_CHG "!@SCR_CHG!"   "." 7
+	 CALL :PadLeft #S_ADD "!@SCR_ADD!"   "." 7
+	 CALL :PadLeft #S_DEL "!@SCR_DEL!"   "." 7
+	 CALL :PadLeft #C_CHG "!@CFG_CHG!"   "." 7
+	 CALL :PadLeft #C_ADD "!@CFG_ADD!"   "." 7
+	 CALL :PadLeft #C_DEL "!@CFG_DEL!"   "." 7
+	 ECHO:
+	 ECHO FILE CHANGES BY EXTENSION
+	 ECHO %@DIVIDER-%
+	 FOR %%E IN (%@EXT2SCAN%) DO (
+		 IF NOT "!@ADD%%E!/!@CHG%%E!/!@DEL%%E!"=="0/0/0" (
+			 CALL :PadRight @E.%%E "%%E " "." 14
+			 CALL :PadLeft  @C.%%E "!@CHG%%E!" "." 7
+			 CALL :PadLeft  @A.%%E "!@ADD%%E!" "." 7
+			 CALL :PadLeft  @D.%%E "!@DEL%%E!" "." 7
+			 ECHO  !@E.%%E! CHG!@C.%%E!   ADD!@A.%%E!   DEL!@D.%%E!
+		 )
+	 )
+	 ECHO %@DIVIDER-%
+	 ECHO  BINARIES ..... CHG!#B_CHG!   ADD!#B_ADD!   DEL!#B_DEL!
+	 ECHO  SCRIPTS ...... CHG!#S_CHG!   ADD!#S_ADD!   DEL!#S_DEL!
+	 ECHO  CONFIGS ...... CHG!#C_CHG!   ADD!#C_ADD!   DEL!#C_DEL!
+	 ECHO %@DIVIDER-%
+	 ECHO  TOTALS:        CHG!#T_CHG!   ADD!#T_ADD!   DEL!#T_DEL!
+	 ECHO %@DIVIDER%
+ )
+
+ rem -- Additional Statistics (Critical Changes)
+ CALL :PadLeft @WC "!@WATCHCOUNT!" "." 24
+ CALL :PadLeft @CC "!@CONFIG_CHANGES!" "." 24
+ CALL :PadLeft @PC "!@POLICY_CHANGES!" "." 25
+
+ ECHO:
  ECHO  # OF WATCHED FILES CHANGED.!@WC!
  ECHO  # OF SYSTEM CONFIG CHANGES.!@CC!
  ECHO  # OF AUDIT POLICY CHANGES.!@PC!
+
  FOR /L %%Z IN (1,1,%~1) DO ECHO:
  %@PAUSE_IF_DEBUG%
  EXIT /B
@@ -1178,7 +1275,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Display Drive Summary Info
- rem === Updated On: 21 Nov 2014 / 19 Nov 2014
+ rem === Updated On: 29 Nov 2025 / 21 Nov 2014 / 19 Nov 2014
  rem ==========================================================================
 :CleanDriveInfo
  rem %1 = Current Drive Stats
@@ -1186,13 +1283,15 @@
 
  SET @TMP=%~1
  IF NOT "%~2"=="" SET @TMP=!@TMP:%~2=!
- FOR /F "TOKENS=1-7 DELIMS= " %%a IN ('ECHO !@TMP!') DO (
-	 CALL :PadRight @DL "%%a" " " 2
-	 CALL :PadRight @DT "%%c" " " 5
-	 CALL :PadLeft  @DS "%%f" "." 13
-	 CALL :PadLeft  @DF "%%e" "." 13
-	 CALL :PadLeft  @DU "%%g" "." 4
-	 ECHO  !@DL! !@DT!  Total.!@DS!  Free.!@DF!  Used.!@DU!%% - %~2
+ FOR /F "TOKENS=1-8 DELIMS= " %%a IN ('ECHO !@TMP!') DO (
+	 SET @USED=0.0
+	 IF NOT "%%h"=="" FOR /F %%Z IN ('CCALC 100 - %%h 2^>NUL') DO SET @USED=%%Z
+	 CALL :PadRight @DL "%%a"     " " 2
+	 CALL :PadRight @FS "%%c"     " " 5
+	 CALL :PadLeft  @DT "%%d %%e" "." 13
+	 CALL :PadLeft  @DF "%%f %%g" "." 13
+	 CALL :PadLeft  @DU "!@USED!" "." 5
+	 ECHO  !@DL! !@FS!  Total.!@DT!  Free.!@DF!  Used.!@DU!%% -- %~2
  )
  %@PRINT_IF_DEBUG%
  EXIT /B
@@ -1391,7 +1490,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Update Job Execution Stats
- rem === Updated On: 29 Sep 2025 / 18 Sep 2025 / 15 Oct 2019 / 07 Oct 2019
+ rem === Updated On: 14 Oct 2025 / 29 Sep 2025 / 18 Sep 2025 / 15 Oct 2019
  rem ==========================================================================
 :SaveJobHistory
  rem %* = Optional Message to include in Job History
@@ -1417,7 +1516,7 @@
 
  %@VERBOSE_OFF%
  TYPE NUL >>"%@TIMINGS%"
- FOR /F "TOKENS=3" %%c IN ('READABLE "%@TIMINGS%" -F "/" --TALLY-ONLY') DO SET @ROWCOUNT=%%c
+ FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q 2^>NUL') DO SET @ROWCOUNT=%%c
  IF !@ROWCOUNT! GTR %@MAXROWS% (
 	 SET @TRUNCATED= // TRUNCATED
 	 SET @OLDTIME=!@TIMINGS:TXT=%@FILESTAMP%!
@@ -1435,7 +1534,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Forward Output to Available Syslog Server(s) as LOCAL3
- rem === Updated On: 25 Sep 2024 / 13 Jan 2020 / 07 Mar 2019
+ rem === Updated On: 13 Jan 2026 / 01 Jan 2026 / 25 Sep 2024 / 13 Jan 2020
  rem ==========================================================================
 :ForwardToSyslog
  rem %1 = Syslog Severity Level (RFC 3164)
@@ -1460,13 +1559,13 @@
 	 IF /I "%@USE_SYSLOGS%"=="TRUE" (
 		 FOR %%s IN ("" 0 1 2 3 4) DO IF DEFINED @SYSLOG%%~s (
 			 SET @S_PORT=514& IF DEFINED @SYSLOG%%s_PORT SET @S_PORT=!@SYSLOG%%~s_PORT!
-			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
 
 	 IF /I "%@SCRIPT_METRICS%"=="TRUE" (
 		 FOR %%P IN (%@MY_SYSLOG_PORTS%) DO (
-			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"!@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"%DATE% at %TIME: =0% -- !@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
  )
@@ -1619,4 +1718,4 @@
 	 ECHO:
  )
  CALL :ShowStatus "FINISHED"
-                                               
+         

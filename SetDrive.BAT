@@ -5,13 +5,13 @@
  rem Created On: 22 Jun 2003
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 22 Sep 2025 / 14 Aug 2025 / 09 Jul 2025 / 17 Jan 2025 / 23 Sep 2024
+ rem Updated On: 31 Jan 2026 / 16 Jan 2026 / 12 Oct 2025 / 22 Sep 2025 
  rem         By: Andrew S. Baker
  rem
 
 
  rem ==========================================================================
- rem  OS Required: Windows 2003 or later (Originally: NT4+)
+ rem  OS Required: Windows 2008 or later (previously Windows 2003+)
  rem
  rem  Non-Native Utilities Used/Required:
  rem    BrainWave Utilities .... https://www.BrainWaveCC.com/brainwave-utilities
@@ -19,6 +19,7 @@
  rem    PAEXEC ................. https://www.poweradmin.com/paexec/
  rem    PSTOOLS ................ https://docs.microsoft.com/en-us/sysinternals/
  rem    Resource Kit ........... https://en.wikipedia.org/wiki/Resource_Kit
+ rem    SysLogGen .............. http://www.snmpsoft.com/freetools/sysloggen.html
  rem
  rem  Input Files Used By Script (stored in %SystemDrive%\Scripts\Bat\Input):
  rem    FolderDefaults.TXT ..... Determine Location for Scripts and Logs
@@ -249,23 +250,35 @@
  :::
  :::  (Jul 2025) v19.9 -- Added CHCP to debug output;
  :::
+ :::  (Oct 2025) v20.0 -- Expanded the list of essential files to verify;
+ :::  -- Pull @STORAGE related variables from DATEINFO when possible;
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::  (Jan 2026) v20.1 -- Implemented various changes using FINDFILES, including:
+ :::  --- QUERY.EXE is now deemed an optional file;
+ :::  --- Replaced the use of the @SEARCHPATH variable;
+ :::  --- Replaced the use of the WHERE utility;
+ :::  --- Corrected the evaluation of share name processing;
+ :::
+ :::  (Jan 2026) v20.2 -- Enhance Syslog initiation messages;
+ :::
+ :::
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
-
-
- rem -- Current Script Version
- SET "@VAR_VER=%~nx0 v19.10.0.1995" a
 
 
  rem ==========================================================================
  rem === Check for Essential Utilities and/or Scripts
- rem === Updated On: 10 May 2024
+ rem === Updated On: 15 Jan 2026 / 12 Oct 2025 / 10 May 2024
  rem ==========================================================================
- FINDFILES --bw -w -m -o CHOICE.EXE FINDSTR.EXE TIMEOUT.EXE
+ SET @VAR_VER=%~nx0 v20.2.0.2020
+ SET #BWUTILS=READABLE.EXE READCONFIG.EXE
+ SET #MSUTILS=NET.EXE
+ SET #O_UTILS=FILEHASH.EXE  FSUM.EXE SYSLOGGEN.EXE  CHOICE.EXE FINDSTR.EXE QUERY.EXE TIMEOUT.EXE
+ FINDFILES --bw -w -m -f %#BWUTILS% %#MSUTILS% -o %#O_UTILS%
  IF ERRORLEVEL 64 EXIT /B
 
 
@@ -274,12 +287,12 @@
  rem === Updated On: 23 Sep 2024 / 08 Sep 2024 / 01 Sep 2024 / 30 Jul 2020
  rem ==========================================================================
 :Announcement
- SET "@CODEPAGE_OEM=437"
- IF "%~2"=="" (SET "@CODEPAGE_BWCC=65001") ELSE (SET "@CODEPAGE_BWCC=%~2")
- IF NOT DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP') DO SET /A "$CODEPAGE=%%C"
+ SET @CODEPAGE_OEM=437
+ IF "%~2"=="" (SET @CODEPAGE_BWCC=65001) ELSE (SET @CODEPAGE_BWCC=%~2)
+ IF NOT DEFINED $CODEPAGE FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP') DO SET /A $CODEPAGE=%%C
  FOR /F "TOKENS=1* DELIMS=:" %%B IN ('CHCP %@CODEPAGE_BWCC%') DO (
 	 ECHO Reading Script Configuration Data via %@VAR_VER:  = % ... Please Wait... {Active code page:%%C}
-	 SET /A "@CODEPAGE_CURRENT=%%C"
+	 SET /A @CODEPAGE_CURRENT=%%C
  )
  ECHO:
 
@@ -289,20 +302,20 @@
  rem === Updated On: 09 Jul 2025 / 02 Sep 2024 / 05 May 2020 / 24 Apr 2020
  rem ==========================================================================
 :DebugMode
- SET "@VERBOSE_OFF=ECHO OFF"
- SET "#DEBUG=" & FOR %%d IN (LOG STEP TRUE VERBOSE) DO IF /I "%Debug%"=="%%~d" SET "#DEBUG=TRUE"
+ SET @VERBOSE_OFF=ECHO OFF
+ SET #DEBUG=& FOR %%d IN (LOG STEP TRUE VERBOSE) DO IF /I "%Debug%"=="%%~d" SET #DEBUG=TRUE
  IF DEFINED #DEBUG (
-	 SET "@DIAGMODE=TRUE"
-	 SET "@DEBUG_MODE=[DEBUG MODE ON]"
-	 SET "@PAUSE_IF_DEBUG=TIMEOUT 5"
-	 SET "@PRINT_IF_DEBUG=ECHO:^& CHCP^& SET @^& ECHO:^& TIMEOUT 5"
-	 SET "@END_DEBUG_MODE=ECHO:^& ECHO *** DEBUG MODE FINISHED ***^& ECHO:^& SET @^& TIMEOUT 30"
-	 IF /I "%Debug%"=="LOG" (SET "@PAUSE_IF_DEBUG=" & SET "@PRINT_IF_DEBUG=ECHO:^& SET @^& ECHO:")
-	 IF /I "%Debug%"=="STEP" (SET "@PAUSE_IF_DEBUG=ECHO ##PAUSE##" & SET "@PRINT_IF_DEBUG=ECHO ##PRINT##")
-	 IF /I "%Debug%"=="VERBOSE" (SET "@VERBOSE_OFF=ECHO ON") ELSE (FOR %%t IN (ON OFF) DO SET "@VERBOSE_%%t=ECHO %%t")
+	 SET @DIAGMODE=TRUE
+	 SET @DEBUG_MODE=[DEBUG MODE ON]
+	 SET @PAUSE_IF_DEBUG=TIMEOUT 5
+	 SET @PRINT_IF_DEBUG=ECHO:^& CHCP^& SET @^& ECHO:^& TIMEOUT 5
+	 SET @END_DEBUG_MODE=ECHO:^& ECHO *** DEBUG MODE FINISHED ***^& ECHO:^& SET @^& TIMEOUT 30
+	 IF /I "%Debug%"=="LOG" (SET @PAUSE_IF_DEBUG=& SET @PRINT_IF_DEBUG=ECHO:^& SET @^& ECHO:)
+	 IF /I "%Debug%"=="STEP" (SET @PAUSE_IF_DEBUG=ECHO ##PAUSE##& SET @PRINT_IF_DEBUG=ECHO ##PRINT##)
+	 IF /I "%Debug%"=="VERBOSE" (SET @VERBOSE_OFF=ECHO ON) ELSE (FOR %%t IN (ON OFF) DO SET @VERBOSE_%%t=ECHO %%t)
 	 ECHO *** DEBUG MODE = ON ***
 	 ECHO ON
- ) ELSE ( FOR %%d IN (DEBUG_MODE PAUSE_IF_DEBUG PRINT_IF_DEBUG END_DEBUG_MODE VERBOSE_ON) DO SET "@%%d=")
+ ) ELSE ( FOR %%d IN (DEBUG_MODE PAUSE_IF_DEBUG PRINT_IF_DEBUG END_DEBUG_MODE VERBOSE_ON) DO SET @%%d=)
 
 
  rem ==========================================================================
@@ -314,7 +327,7 @@
 
  rem -- Date Variable Definitions (and more) using DATEINFO v4.0+
  rem -- Updated On: 12 Sep 2023 / 04 Jul 2019
- SET @APP_ARCH=& FOR /F "TOKENS=1-2 DELIMS=;" %%P IN ('DATEINFO --Script-Variables 2^>NUL') DO SET "%%P=%%~Q"
+ SET @APP_ARCH=& FOR /F "TOKENS=1-2 DELIMS=;" %%P IN ('DATEINFO --Script-Variables --Prefix^="@" 2^>NUL') DO SET "%%P=%%~Q"
  IF NOT DEFINED @APP_ARCH (
 	 ECHO *** COULD NOT DEFINE ESSENTIAL VARIABLES *** 
 	 TIMEOUT 60
@@ -325,7 +338,7 @@
 
 
  rem -- Pre-pend our Local Scripts Archive to the current PATH
- rem -- Updated On: 27 Dec 2020 / 27 Jul 2020
+ rem -- Updated On: 14 Jan 2026 / 27 Dec 2020 / 27 Jul 2020
  FOR %%S IN ("%~0\..") DO SET @SCRIPTS=%%~dpS
  SET @SCRIPTS=%@SCRIPTS:~0,-1%
  SET @UTILS=%@SCRIPTS%\Utils
@@ -345,7 +358,6 @@
  SET @DIR_VBS=%@SCRIPTS%\VBS
  SET @DIR_UTILS=%@UTILS%
  SET @WINDOWSPATH=%SystemRoot%\System32;%SystemRoot%;%SystemRoot%\System32\Wbem
- SET @SEARCHPATH=%@S_UTILS%;%@WINDOWSPATH%
  IF NOT DEFINED @PATH SET @PATH=%PATH%
  SET PATH=%@DIR_BAT%;%@DIR_PS%;%@P_UTILS%;%@WINDOWSPATH%;%@PATH%;%@M_UTILS%
 
@@ -372,8 +384,8 @@
 
 
  rem -- Determine Which Console Session is Active for this Script
- rem -- Updated On: 21 Jul 2024 / 24 Apr 2024 / 16 Oct 2023 / 21 Dec 2019
- FINDFILES -F QUERY.EXE -Q
+ rem -- Updated On: 14 Jan 2026 / 21 Jul 2024 / 24 Apr 2024 / 16 Oct 2023
+ FINDFILES --RC -F QUERY.EXE
  IF ERRORLEVEL 109 (
 	 SET @CONSOLE_SESSION_REASON=WINDOWS HOME
 	 SET @CONSOLE_SESSION=TRUE
@@ -383,15 +395,15 @@
 
 
  rem -- Variables for Scripts, Input Files, and Text Comparisons
- rem -- Updated On: 28 Jul 2024 / 24 Sep 2019 / 15 Feb 2015
+ rem -- Updated On: 14 Jan 2026 / 28 Jul 2024 / 24 Sep 2019 / 15 Feb 2015
  SET @NODIFF=FC: no differences encountered
- SET @TEXTFILES=BAT CMD KIX VBS PL PS TXT INI DAT INPUT CSV XL
+ SET @TEXTFILES=BAT CMD KIX VBS PL PS PY TXT INI DAT INPUT CSV XL
  SET @SCRIPTEXT=
  FOR %%E IN (%@TEXTFILES%) DO CALL SET @SCRIPTEXT=%%@SCRIPTEXT%% *.%%~E
 
 
  rem -- Obtain Server Input Lists (Customized or Default)
- rem -- Updated On: 17 Jan 2025 / 18 Jun 2024 / 16 Jun 2024 / 10 May 2024
+ rem -- Updated On: 16 Jan 2026 / 17 Jan 2025 / 18 Jun 2024 / 16 Jun 2024
  SET @INPUT=%~dp0Input\
  SET @L_INPUT=%~dp0LogonScripts\Scripts\Bat\Input\
 
@@ -473,7 +485,7 @@
 	 RENAME "%%~F%%~I.TXT" "[%%~I].TXT" 2>NUL
 	 DEL "%%~F%%~I.TXT" 2>NUL
  )
- SET @CORELIST=& IF EXIST "%@SOURCEINPUT%" FOR /F "SKIP=2 TOKENS=*" %%I IN ('TYPE "%@SOURCEINPUT%" ^| FIND "["') DO CALL SET @CORELIST=%%@CORELIST%% %%~I
+ SET @CORELIST=& IF EXIST "%@SOURCEINPUT%" FOR /F "SKIP=1 TOKENS=*" %%I IN ('TYPE "%@SOURCEINPUT%" ^| FIND "["') DO CALL SET @CORELIST=%%@CORELIST%% %%~I
  IF NOT DEFINED @CORELIST SET @CORELIST=%@GLOBALTXT%
 
  rem -- Determine Current COMPLETE List of Script Input Files
@@ -496,16 +508,16 @@
  )
 
  rem -- Determine Location/Existence of Various Microsoft Utilities
- rem -- Updated On: 24 Sep 2019 / 19 Apr 2018
+ rem -- Updated On: 14 Jan 2026 / 24 Sep 2019 / 19 Apr 2018
  FOR %%F IN (CHOICE FINDSTR FORFILES FIND) DO (
 	 SET @%%F=
-	 FOR %%P IN (%@SEARCHPATH%) DO IF EXIST "%%~P\%%F.EXE" SET @%%F=%%~P\%%F.EXE
+	 FOR /F "TOKENS=*" %%P IN ('FINDFILES -F "%%~F" 2^>NUL') DO SET @%%F=%%~P
  )
 
  rem -- Determine Location/Existence of Remote Console Utilities
- rem -- Updated On: 26 Feb 2024 / 21 May 2020
+ rem -- Updated On: 14 Jan 2026 / 26 Feb 2024 / 21 May 2020
  SET @REXEC_UTILS=PAEXEC PSEXEC
- FOR /F "TOKENS=*" %%R IN ('WHERE %@REXEC_UTILS% 2^>NUL') DO (
+ FOR /F "TOKENS=*" %%R IN ('FINDFILES -F %@REXEC_UTILS% 2^>NUL') DO (
 	 SET @REXEC_UTIL=%%~nxR
 	 IF /I NOT "%@NOPAEXEC%"=="TRUE" IF /I "%%~nR"=="PAEXEC" SET @REXEC_UTIL=PAEXEC.EXE
 	 IF /I NOT "%@NOPSEXEC%"=="TRUE" IF /I "%%~nR"=="PSEXEC" SET @REXEC_UTIL=PSEXEC.EXE %@PSPARAMS%
@@ -535,10 +547,10 @@
  SET @JOBLEVEL=& IF %@OSBUILD% GEQ 6000 SET @JOBLEVEL=/RL HIGHEST
 
  rem -- Set Additional Variables for Using XCOPY vs ROBOCOPY
- rem -- Updated On: 19 Apr 2018 / 01 Jan 2018
+ rem -- Updated On: 14 Jan 2026 / 19 Apr 2018 / 01 Jan 2018
  SET @COPYMODE=XCOPY
- SET @ROBOCOPY=& FOR %%P IN (%@SEARCHPATH%) DO IF EXIST "%%~P\RoboCopy.EXE" (
-	 SET @ROBOCOPY=%%~P\RoboCopy.EXE
+ SET @ROBOCOPY=& FOR /F "TOKENS=*" %%P IN ('FINDFILES -F ROBOCOPY 2^>NUL') DO (
+	 SET @ROBOCOPY=%%~P
 	 SET @COPYMODE=ROBOCOPY
  )
  SET @RETRIES=/R:2 /W:5& IF %@OSBUILD% LSS 7600 SET @THREADS=
@@ -552,31 +564,31 @@
 
 
  rem -- Set Variables for File Checksum Utilities (FSUM and FileHash, respectively)
- rem -- Updated On: 24 Feb 2019 / 09 Aug 2018
+ rem -- Updated On: 14 Jan 2026 / 24 Feb 2019 / 09 Aug 2018
  SET @HASHUTILS=FSUM FILEHASH
  SET @HASHUTIL=
  SET @XCOMPARE=FALSE
  FOR %%H IN (%@HASHUTILS%) DO (
 	 SET @%%~H=
-	 FOR %%P IN (%@S_UTILS%) DO IF EXIST "%%~P\%%~H.EXE" (
-		 SET @%%~H=%%~P\%%~H.EXE
+	 FOR /F "TOKENS=*" %%P IN ('FINDFILES -F "%%~H" 2^>NUL') DO (
+		 SET @%%~H=%%~P
 		 SET @XCOMPARE=TRUE
 		 SET @HASHUTIL=%%~H
-		 IF /I "%%~P"=="%@UTILS64%" (SET @HU_EDITION=x64) ELSE (SET @HU_EDITION=x86)
+		 IF /I "%%~dpP"=="%@UTILS64%\" (SET @HU_EDITION=x64) ELSE (SET @HU_EDITION=x86)
 	 )
  )
 
 
  rem -- Set Variables for Syslog Output Utilities (SyslogGen)
- rem -- Updated On: 09 Aug 2018 / 20 Jul 2018 / 19 Apr 2018
+ rem -- Updated On: 14 Jan 2026 / 09 Aug 2018 / 20 Jul 2018 / 19 Apr 2018
  SET @SYSLOG_UTILS=SYSLOGGEN
  SET @SYSLOG_UTIL=
  SET @USE_SYSLOGS=FALSE
  SET @NO_SYSLOGGEN=Unable to recognize target address or hostname: No such host is known.
  FOR %%S IN (%@SYSLOG_UTILS%) DO (
 	 SET @%%~S=
-	 FOR %%P IN (%@S_UTILS%) DO IF EXIST "%%~P\%%~S.EXE" (
-		 SET @%%~S=%%~P\%%~S.EXE
+	 FOR /F "TOKENS=*" %%P IN ('FINDFILES -F "%%~S" 2^>NUL') DO (
+		 SET @%%~S=%%~P
 		 SET @USE_SYSLOGS=TRUE
 		 SET @SYSLOG_UTIL=%%~S
 	 )
@@ -584,24 +596,28 @@
 
 
  rem -- Determine Log and Storage Drives and Folders
- rem -- Updated On: 22 Oct 2020 / 29 Jul 2020
- SET @SETCFG=FALSE
- SET @WHICHDRV=%SystemDrive%
- FOR /F "TOKENS=2 DELIMS=\ " %%D IN ('NET SHARE Storage$ 2^>NUL ^| FIND /I "PATH"') DO SET @WHICHDRV=%%D
- FOR /F "TOKENS=2 DELIMS=\ " %%D IN ('NET SHARE Backups$ 2^>NUL ^| FIND /I "PATH"') DO SET @BACKUPDRV=%%D
-
- IF DEFINED @RESETDRIVE (
+ rem -- Updated On: 16 Jan 2026 / 12 Oct 2025 / 22 Oct 2020 / 29 Jul 2020
+ SET @SETCFG=DATEINFO
+ SET #SKIP_MANUAL_CONFIG=%@SHAREINFO%& IF DEFINED @RESETDRIVE SET #SKIP_MANUAL_CONFIG=FALSE
+ IF /I NOT "%#SKIP_MANUAL_CONFIG%"=="TRUE" (
+	 SET @SETCFG=FALSE
 	 SET @WHICHDRV=%SystemDrive%
-	 SET @BACKUPDRV=%SystemDrive%
-	 FOR /F "TOKENS=1-4 EOL=|" %%L IN (%@STORAGELIST%) DO FOR %%C IN ("%COMPUTERNAME%" ";%COMPUTERNAME%") DO IF /I "%%~L"=="%%~C" (
-		 SET @SETCFG=TRUE
-		 IF EXIST "%%~M\" (SET @WHICHDRV=%%~M& SET @BACKUPDRV=%%~M)
-		 FOR %%A IN (%@ALPHABET%) DO IF /I "%%~O"=="%%~A:" IF EXIST "%%~O\" SET @BACKUPDRV=%%~O
+	 FOR /F "TOKENS=2 DELIMS=\ " %%D IN ('NET SHARE Storage$ 2^>NUL ^| FIND /I "PATH"') DO SET @WHICHDRV=%%D
+	 FOR /F "TOKENS=2 DELIMS=\ " %%D IN ('NET SHARE Backups$ 2^>NUL ^| FIND /I "PATH"') DO SET @BACKUPDRV=%%D
+
+	 IF DEFINED @RESETDRIVE (
+		 SET @WHICHDRV=%SystemDrive%
+		 SET @BACKUPDRV=%SystemDrive%
+		 FOR /F "TOKENS=1-4 EOL=|" %%L IN (%@STORAGELIST%) DO FOR %%C IN ("%COMPUTERNAME%" ";%COMPUTERNAME%") DO IF /I "%%~L"=="%%~C" (
+			 SET @SETCFG=TRUE
+			 IF EXIST "%%~M\" (SET @WHICHDRV=%%~M& SET @BACKUPDRV=%%~M)
+			 FOR %%A IN (%@ALPHABET%) DO IF /I "%%~O"=="%%~A:" IF EXIST "%%~O\" SET @BACKUPDRV=%%~O
+		 )
 	 )
+	 CALL SET @STORAGE=%%@WHICHDRV%%\Storage
+	 CALL SET @LOGBASE=%%@STORAGE%%\Logs
+	 CALL SET @ZIPPATH=%%@LOGBASE%%\ZipFiles
  )
- SET @STORAGE=%@WHICHDRV%\Storage
- SET @LOGBASE=%@STORAGE%\Logs
- SET @ZIPPATH=%@LOGBASE%\ZipFiles
  FOR %%D IN (Backups Downloads Installs) DO SET @%%D=%@BACKUPDRV%\Storage\%%D
 
 
@@ -652,10 +668,11 @@
 
 
  rem -- Send Name of Calling Shell Script to Local Syslog, if @SCRIPT_METRICS=TRUE
- rem -- Updated On: 02 Jan 2022 / 21 Sep 2020
- SET @SYSLOG_MSG=%DATE% at %TIME: =0% -- Initiated %@EJ_INFO%
- SET @SYSLOG_MSG=!@SYSLOG_MSG:\=\x5B!
- SET @SYSLOG_MSG=!@SYSLOG_MSG:"=\x22!
+ rem -- Updated On: 31 Jan 2026 / 12 Oct 2025 / 02 Jan 2022 / 21 Sep 2020
+ IF DEFINED @EJ_INFO (SET #THISJOB=%@EJ_INFO%) ELSE (SET #THISJOB=%@JOBNAME%)
+ SET @SYSLOG_MSG=%DATE% at %TIME: =0% -- Initiated %#THISJOB%
+ SET @SYSLOG_MSG=%@SYSLOG_MSG:\=\x5B%
+ SET @SYSLOG_MSG=%@SYSLOG_MSG:"=\x22%
 
  IF NOT DEFINED @MY_SYSLOG_PORTS SET @MY_SYSLOG_PORTS=514
  IF /I "%@SCRIPT_METRICS%"=="TRUE" (
@@ -707,4 +724,4 @@
 	 FOR %%s IN (%@VALID_SESSIONS%) DO IF /I "%@SESSION_NAME%"=="%%~s" SET @CONSOLE_SESSION=TRUE
 	 FOR %%u IN (%@SERVICE_ACCTS%)  DO IF /I "%@SESSION_USER%"=="%%~u" SET @CONSOLE_SESSION=FALSE
  EXIT /B
-                                                                
+                                                              

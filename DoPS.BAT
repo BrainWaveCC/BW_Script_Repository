@@ -1,5 +1,5 @@
-@REM - ASB (05 Apr 2006 // 14 Aug 2025 / 14 Jul 2024 / 29 May 2024 / 10 May 2024 / 02 May 2024 / 28 Apr 2024 / 15 Feb 2024): Execute One Command Against Selected Systems via PSEXEC or PAEXEC or BeyondExec
 @ECHO OFF
+ rem - ASB (05 Apr 2006 // 21 Dec 2025 / 14 Aug 2025 / 14 Jul 2024 / 29 May 2024): Execute One Command Against Selected Systems via PSEXEC or PAEXEC or BeyondExec
 
 
  rem -- Generate Filtered CMD Title
@@ -31,7 +31,7 @@
 
  rem -- Initialize Environment Variables
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v7.7.0.970 d
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v7.8.0.980
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=2 -c "H- HELP- ?-" -x "??- H2-" -s %*
@@ -167,6 +167,10 @@
 		 SET @LOCATION=Local
 		 SET @EXECUTE=CALL %@CMD%
 		 SET @EXECUTE=!@EXECUTE:CALL CALL =CALL !
+		 ECHO:
+		 ECHO:
+		 ECHO On Local System ..... "!@MACHINE:\=!" [!TIME: =0!]
+		 ECHO %@DIVIDER-%
 	 ) ELSE (
 		 SET @LOCATION=Remote
 		 SET @EXECUTE=%@RMTCONSOLE% !@MACHINE! CMD /C %@CMD%
@@ -375,4 +379,4 @@
 	 ECHO    %SystemDrive%\Scripts\Bat\Input^)
  )
  CALL :ShowStatus "FINISHED"
- 
+                                            

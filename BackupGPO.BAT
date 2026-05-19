@@ -100,8 +100,9 @@
  :::
  :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -415,4 +416,4 @@
 	 ECHO  * Options are case-insensitive, and can be prefaced by "-" or "/".
  )
  CALL :ShowStatus "FINISHED"
-                                                                               
+      

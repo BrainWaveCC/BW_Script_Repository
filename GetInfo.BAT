@@ -6,7 +6,7 @@
  rem Created On: 10 May 2005
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 29 Sep 2025 / 14 Aug 2025 / 01 Feb 2025 / 11 Sep 2024 / 28 Jul 2024
+ rem Updated On: 13 Jan 2026 / 01 Jan 2026 / 29 Sep 2025 / 14 Aug 2025 / 01 Feb 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -204,11 +204,14 @@
  :::
  :::  (Sep 2025) v9.8 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
  :::
+ :::  (Jan 2026) v9.9 -- Update Syslog logging routine for script metrics;
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -228,7 +231,7 @@
  rem === Updated On: 29 Sep 2025 / 01 Feb 2025 / 11 Sep 2024 / 20 Jun 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v9.8.0.1980
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v9.9.0.1990
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=1 -c "H HELP ?" -x "?? H2" -s %*
@@ -1290,7 +1293,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Forward Output to Available Syslog Server(s) as LOCAL3
- rem === Updated On: 13 Jan 2020 / 25 Dec 2018
+ rem === Updated On: 13 Jan 2026 / 01 Jan 2026 / 13 Jan 2020 / 25 Dec 2018
  rem ==========================================================================
 :ForwardToSyslog
  rem %1 = Syslog Severity Level (RFC 3164)
@@ -1307,16 +1310,26 @@
  FOR %%a IN (6 INFORMATION) DO IF /I "%~1"=="%%~a" SET @SEV=6
  FOR %%a IN (7 DEBUG) DO       IF /I "%~1"=="%%~a" SET @SEV=7
 
+ %@VERBOSE_OFF%
  CALL :Prepare4Syslog %@S_MSG%
 
- %@VERBOSE_OFF%
  ECHO !@S_MSG!
- IF DEFINED @SYSLOG_UTIL IF /I "%@USE_SYSLOGS%"=="TRUE" FOR %%s IN ("" 0 1 2 3 4) DO IF DEFINED @SYSLOG%%~s (
-	 SET @S_PORT=514& IF DEFINED @SYSLOG%%s_PORT SET @S_PORT=!@SYSLOG%%~s_PORT!
-	 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% | FIND /V "%@NO_SYSLOGGEN%"
+ IF DEFINED @SYSLOG_UTIL (
+	 IF /I "%@USE_SYSLOGS%"=="TRUE" (
+		 FOR %%s IN ("" 0 1 2 3 4) DO IF DEFINED @SYSLOG%%~s (
+			 SET @S_PORT=514& IF DEFINED @SYSLOG%%s_PORT SET @S_PORT=!@SYSLOG%%~s_PORT!
+			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
+		 )
+	 )
+
+	 IF /I "%@SCRIPT_METRICS%"=="TRUE" (
+		 FOR %%P IN (%@MY_SYSLOG_PORTS%) DO (
+			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"%DATE% at %TIME: =0% -- !@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
+		 )
+	 )
  )
+ %@VERBOSE_ON%
  %@PRINT_IF_DEBUG%
- IF DEFINED #DEBUG ECHO ON
  EXIT /B
 
 
@@ -1435,4 +1448,4 @@
 	 ECHO    This is especially true for parameters associated with /C: and /V:
  )
  CALL :ShowStatus "FINISHED"
-                                                                                          
+                                 

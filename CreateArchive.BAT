@@ -6,7 +6,7 @@
  rem Created On: 18 Apr 2003
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 29 Sep 2025 / 14 Aug 2025 / 27 Jun 2025 / 26 Sep 2024 / 08 Sep 2024
+ rem Updated On: 13 Jan 2026 / 01 Jan 2026 / 29 Sep 2025 / 14 Aug 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -355,11 +355,14 @@
  :::
  :::  (Sep 2025) v18.1 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
  :::
+ :::  (Jan 2026) v18.2 -- Update Syslog logging routine for script metrics;
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -379,7 +382,7 @@
  rem === Updated On: 29 Sep 2025 / 27 Jun 2025 / 26 Sep 2024 / 08 Sep 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v18.1.0.2110
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v18.2.0.2120
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=1 -c "H HELP ?" -x "?? H2" -s %*
@@ -1908,7 +1911,7 @@
 
  %@VERBOSE_OFF%
  TYPE NUL >>"%@TIMINGS%"
- FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q') DO SET @ROWCOUNT=%%c
+ FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q 2^>NUL') DO SET @ROWCOUNT=%%c
  IF !@ROWCOUNT! GTR %@MAXROWS% (
 	 SET @TRUNCATED= // TRUNCATED
 	 SET @OLDTIME=!@TIMINGS:TXT=%@FILESTAMP%!
@@ -1926,7 +1929,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Forward Output to Available Syslog Server(s) as LOCAL3
- rem === Updated On: 25 Sep 2024 / 05 Jul 2019 / 07 Mar 2019
+ rem === Updated On: 13 Jan 2026 / 01 Jan 2026 / 25 Sep 2024 / 05 Jul 2019 / 07 Mar 2019
  rem ==========================================================================
 :ForwardToSyslog
  rem %1 = Syslog Severity Level (RFC 3164)
@@ -1951,13 +1954,13 @@
 	 IF /I "%@USE_SYSLOGS%"=="TRUE" (
 		 FOR %%s IN ("" 0 1 2 3 4) DO IF DEFINED @SYSLOG%%~s (
 			 SET @S_PORT=514& IF DEFINED @SYSLOG%%s_PORT SET @S_PORT=!@SYSLOG%%~s_PORT!
-			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
 
 	 IF /I "%@SCRIPT_METRICS%"=="TRUE" (
 		 FOR %%P IN (%@MY_SYSLOG_PORTS%) DO (
-			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"!@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"%DATE% at %TIME: =0% -- !@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
  )
@@ -2195,4 +2198,4 @@
 	 FOR /F "TOKENS=3*" %%B IN ('SCHTASKS ^| FIND /I "Backup Data -"') DO ECHO   %%C
  )
  CALL :ShowStatus "FINISHED"
-                                                                               
+                                                                 

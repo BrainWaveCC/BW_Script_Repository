@@ -6,7 +6,7 @@
  rem Created On: 22 Jun 2003
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 26 Sep 2025 / 14 Aug 2025 / 26 Sep 2024 / 03 Sep 2024
+ rem Updated On: 13 Jan 2026 / 08 Jan 2026 / 01 Jan 2026 / 26 Sep 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -229,6 +229,8 @@
  :::  (Sep 2025) v9.6 -- Replaced instances of FORFILES with FILEHASH --JF;
  :::  -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
  :::
+ :::  (Jan 2026) v9.7 -- Update Syslog logging routine for script metrics;
+ :::
  ::: --------
  :::  NOTES:
  ::: --------
@@ -237,10 +239,11 @@
  :::  *	This script requires SETDRIVE.BAT for the global variables.
  :::
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -260,7 +263,7 @@
  rem === Updated On: 26 Sep 2025 / 26 Sep 2024 / 28 Jul 2024 / 10 May 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v9.6.0.1060
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v9.7.0.1070
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=1 -c "H HELP ?" -x "?? H2" -s %*
@@ -497,7 +500,7 @@
  )
 
  rem -- Determine Total Number of Files That Were Archived
- FOR /F "TOKENS=1" %%A IN ('READABLE "%@LOGFILE%" -F " testing: " --TO -Q') DO SET @FILES_ARCHIVED=%%~A
+ FOR /F "TOKENS=1" %%A IN ('READABLE "%@LOGFILE%" -F " testing: " --TO -Q 2^>NUL') DO SET @FILES_ARCHIVED=%%~A
  %@PAUSE_IF_DEBUG%
 
 
@@ -855,14 +858,14 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Update Job Execution Stats
- rem === Updated On: 30 Sep 2025 / 05 May 2020 / 27 Apr 2020 / 15 Oct 2019
+ rem === Updated On: 08 Jan 2026 / 30 Sep 2025 / 05 May 2020 / 27 Apr 2020
  rem ==========================================================================
 :SaveJobHistory
  rem %* = Optional Message to include in Job History
 
  CALL :GetTime @SCRIPT_END
- CALL :PadLeft @FA "%@FILES_ARCHIVED%" "." 6
- CALL :PadLeft @DP "%@DIRS_PRUNED%" "." 2
+ CALL :PadLeft @FA "%@FILES_ARCHIVED%" "." 7
+ CALL :PadLeft @DP "%@DIRS_PRUNED%" "." 3
  CALL :PadLeft @AM "%@ARCHIVES_MOVED%" "." 3
  CALL :PadLeft @AP "%@ARCHIVES_PRUNED%" "." 3
 
@@ -874,7 +877,7 @@
 
  %@VERBOSE_OFF%
  TYPE NUL >>"%@TIMINGS%"
- FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q') DO SET @ROWCOUNT=%%c
+ FOR /F %%c IN ('READABLE "%@TIMINGS%" -F "/" --TO -Q 2^>NUL') DO SET @ROWCOUNT=%%c
  IF !@ROWCOUNT! GTR %@MAXROWS% (
 	 SET @TRUNCATED= // TRUNCATED
 	 SET @OLDTIME=!@TIMINGS:TXT=%@FILESTAMP%!
@@ -892,7 +895,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Forward Output to Available Syslog Server(s) as LOCAL3
- rem === Updated On: 25 Sep 2024 / 13 Jan 2020 / 07 Mar 2019
+ rem === Updated On: 13 Jan 2026 / 01 Jan 2026 / 25 Sep 2024 / 13 Jan 2020
  rem ==========================================================================
 :ForwardToSyslog
  rem %1 = Syslog Severity Level (RFC 3164)
@@ -917,13 +920,13 @@
 	 IF /I "%@USE_SYSLOGS%"=="TRUE" (
 		 FOR %%s IN ("" 0 1 2 3 4) DO IF DEFINED @SYSLOG%%~s (
 			 SET @S_PORT=514& IF DEFINED @SYSLOG%%s_PORT SET @S_PORT=!@SYSLOG%%~s_PORT!
-			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:!@SYSLOG%%~s! -p:!@S_PORT! -f:19 -s:!@SEV! -tg:"%~n0" -m:"!@S_MSG2!" -q -hn:%@LOCALHOST% 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
 
 	 IF /I "%@SCRIPT_METRICS%"=="TRUE" (
 		 FOR %%P IN (%@MY_SYSLOG_PORTS%) DO (
-			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"!@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
+			 "%@SYSLOGGEN%" -t:127.0.0.1 -p:%%~P -f:19 -s:6 -tg:"%~n0+" -m:"%DATE% at %TIME: =0% -- !@S_MSG2!" -q -hn:localhost 2>NUL | FIND /V "%@NO_SYSLOGGEN%"
 		 )
 	 )
  )
@@ -1068,4 +1071,4 @@
 	 ECHO    mandatory by any means.
  )
  CALL :ShowStatus "FINISHED"
-                                                                        
+                                                    

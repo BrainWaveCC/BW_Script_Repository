@@ -6,7 +6,7 @@
  rem Created On: 09 Jul 2001
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 14 Aug 2025 / 01 Feb 2025 / 28 Jul 2024 / 09 Jun 2024
+ rem Updated On: 16 Mar 2026 / 14 Aug 2025 / 01 Feb 2025 / 28 Jul 2024
  rem         By: Andrew S. Baker
  rem
 
@@ -34,7 +34,7 @@
  :::  	%SystemRoot%\TEMP
  :::  	%USERPROFILE%\Local Settings\TEMP
  :::  	%USERPROFILE%\AppData\Local\Application Data\Temp
- :::    %SystemRoot%\ProgramData\Microsoft\Windows\WER\...
+ :::    %SystemDrive%\ProgramData\Microsoft\Windows\WER\...
  :::  	x:\RecoveryBin
  :::
  :::  You can add other locations to the @TEMPDIRS variable, OR via the
@@ -88,11 +88,14 @@
  :::
  :::  (Feb 2025) v5.5 -- Replaced COMPINFO with PSINFO to avoid process crashes;
  :::
+ :::  (Mar 2026) v5.6 -- Added the %WINDIR%\SystemTemp folder;
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -109,10 +112,10 @@
 
  rem ==========================================================================
  rem === Initialize Environment Variables
- rem === Updated On: 01 Feb 2025 / 04 Jun 2024 / 10 May 2024 / 18 May 2022
+ rem === Updated On: 16 Mar 2026 / 01 Feb 2025 / 04 Jun 2024 / 10 May 2024 / 18 May 2022
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.5.0.550 e
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v5.6.0.560
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -144,9 +147,9 @@
  FOR %%T IN (TMP TEMP) DO IF /I "!%%~T!"=="" SET %%~T=%SystemDrive%\Temp
  SET @TEMPDIRS="%USERPROFILE%\Local Settings" "%USERPROFILE%\AppData\Local\Application Data" "%TEMP%\.." "%TMP%\.." "%SystemDrive%" "%SystemRoot%"
  SET @TEMPINET="%USERPROFILE%\Local Settings\Temporary Internet Files" "%USERPROFILE%\AppData\Local\Microsoft\Windows\Temporary Internet Files"
+ SET @LOCALTMP=& FOR %%T IN (Temp SystemTemp) DO IF EXIST "%WinDir%\%%~T" SET @LOCALTMP=%WinDir%\%%~T  !@LOCALTMP!
  SET @RECYCLE=$Recycle.Bin RECYCLER RECYCLED RecoveryBin
  SET @NODELETE="File Service" "FileService"
- SET @LOCALTMP=%WinDir%\Temp
 
  rem -- Set Global Variables from Centralized Script
  CALL "%~dp0SetDrive.BAT" "%~n0"
@@ -387,4 +390,4 @@
  )
  NOW \n*** %@SCRIPTSTATUS%: %@VER% [\v] *** %@CHCP_STATUS%\n!@CRLF-%~1!
  EXIT /B
-                                                                                     
+                                    

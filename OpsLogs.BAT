@@ -1,12 +1,12 @@
 @ECHO OFF
  rem ==========================================================================
- rem === Generate System Uptime Report for Server Operations Team
+ rem === Generate System Health Logs for Server Operations Team
  rem ==========================================================================
  rem
  rem Created On: 08 Sep 1998
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 19 Apr 2026 / 03-04 Feb 2026 / 13 Jan 2026 / 01 Jan 2026
+ rem Updated On: 19 Apr 2026 / 03-04 Feb 2026 / 13 Jan 2026 / 01 Jan 2026 / 30 Oct 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -19,28 +19,31 @@
  rem    Unix Ports ............. https://sourceforge.net/projects/unxutils/
  rem
  rem    ADFind ................. http://www.joeware.net/freetools/tools/adfind/
+ rem    AuditPol ............... Resource Kit (Native in Vista+)
  rem    Blat ................... http://www.blat.net/
  rem    DISKSPD ................ https://github.com/microsoft/diskspd
  rem    InfoZip Utilities ...... http://sourceforge.net/projects/infozip/files/
+ rem    NetSess ................ https://www.joeware.net/freetools/tools/netsess/
  rem    SysLogGen .............. http://www.snmpsoft.com/freetools/sysloggen.html (no longer on their site)
  rem    UPTIME2 ................ https://techibee.com/tools/say-hello-to-uptime2-exe-alternative-for-uptime-exe/1728
  rem
+ rem    NMAP (Optional) ........ https://nmap.org/download.html
+ rem
  rem    PAEXEC ................. https://www.poweradmin.com/paexec/
  rem    PSTOOLS ................ https://learn.microsoft.com/en-us/sysinternals/downloads/pstools
+ rem    LOGONSESSIONS .......... https://learn.microsoft.com/en-us/sysinternals/downloads/logonsessions
  rem    Resource Kit ........... https://en.wikipedia.org/wiki/Resource_Kit
  rem
  rem  Input Files Used By Script (stored in %SystemDrive%\Scripts\Bat\Input):
  rem    CustomVariables.TXT .... Centralized Configuration Settings for Scripts
- rem    UptimeList.TXT ......... List of Servers to Track for Uptime Monitoring
+ rem    ServerList.TXT ......... List of Servers to Track for Operations Monitoring
+ rem    NetworkList.TXT ........ List of Network Ranges to Scan using nMap
  rem    MonitoringConfig.TXT ... List of Enabled and Disabled Settings for Monitoring
  rem
  rem  Required Scripts:
  rem    SetDrive.BAT ........... Set Global Variables for this Environment
  rem ==========================================================================
 
- :::  This script is a derivative of the OPSLOGS.BAT script that focuses on
- :::  information relevant to uptime and availability.
- :::
  :::  This script requires the Windows Resource Kit as well as the list of
  :::  utilities linked above, such as BLAT, various PSTOOLS from SysInternals,
  :::  and ports of Unix utils (e.g. HEAD, TAIL). You can obtain more info on
@@ -89,293 +92,354 @@
  :::
  :::  CHANGE LOG NOTES
  :::  -------------------------------------------------------------------------
- :::  (Apr 2011) v3.1 -- Added a new *.ERRORS.TXT log that contains only the
+ :::  (Mar 2011) v9.0 -- To combat rising log sizes, while making the email
+ :::  data easy to obtain and review, a major change was introduced to
+ :::  generate a Basic Report which is a subset of the Full Report. Only the
+ :::  Basic Report which is between 5-10% of the Full Report sent via email.
+ :::  The Full Report is still available in the OperationsLog folder each day.
+ :::
+ :::  (Mar 2011) v9.1 -- Added checking for patch deployment status by way of
+ :::  the MBSACLI utility [Microsoft Baseline Security Analyzer].
+ :::
+ :::  (Apr 2011) v9.3 -- Added a new *.ERRORS.TXT log that contains only the
  :::  lines in the report that have words like ERROR or FAILED. Provided as a
  :::  means to quickly spot-check the state of errors within the report.
  :::
- :::  (Apr 2011) v3.3 -- Added a platform indicator for each system to
+ :::  (Apr 2011) v9.5 -- Added a platform indicator for each system to
  :::  indicate whether or not it is an x86 or x64 system.  Also added a
  :::  function to determine if the time setting on each machine is on track
  :::  with the time on the current system. If not, an OFFSET is displayed next
  :::  to the time and time zone info.
  :::
- :::  (Dec 2011) v3.7 -- Simplified the job scheduling section by way of
+ :::  (Apr 2011) v9.6 -- This script also supports NMAP.  To run it, the NMAP
+ :::  folder must be in your PATH.  The script can support multiple nMap search
+ :::  paths.
+ :::
+ :::  (Dec 2011) v9.7 -- Simplified the job scheduling section by way of
  :::  environment variables for verifying whether to use SCHTASKS or the AT command.
  :::
- :::  (Dec 2012) v3.8 -- Made it possible for the scheduled tasks to be stored
+ :::  (Nov 2012) v9.13 -- Added a routine to purge the accumulating MBSA
+ :::  security scan reports from the %USERPROFILE% folder.
+ :::
+ :::  (Dec 2012) v9.14 -- Made it possible for the scheduled tasks to be stored
  :::  in their own folder, rather than the default root folder of the Task Scheduler.
  :::
- :::  (Oct 2013) v3.9 -- The delimiter for all parameters can be either the
+ :::  (Jan 2013) Disabled the UPTIME /P:30 scan because it occasionally causes
+ :::  STOP errors on Windows 8 and 2012.  Will eventually replace this routine
+ :::  with a different mechanism for determining long-term uptime.
+ :::
+ :::  (Oct 2013) v9.15 -- The delimiter for all parameters can be either the
  :::  "-" or the "/" character.  This includes the help parameters.
  :::
- :::  (Feb 2014) v3.12 -- Added the capability to send log data to one or more
+ :::  (Nov 2013) v9.16 -- The routine for purging old MBSA scan reports was
+ :::  updated to also clean the temporary WSUS files generated in the Internet
+ :::  Files folder.
+ :::
+ :::  (Dec 2013) v10.0 -- It is now possible to obtain the current list of
+ :::  firewall rules from Windows Vista/2008 systems (and newer).  The list
+ :::  will be generated on the fly if the current log from SaveLogs.BAT is
+ :::  unavailable.
+ :::
+ :::  (Feb 2014) v10.1 -- Added the capability to send log data to one or more
  :::  Syslog servers using the SyslogGen or NeoLog utilities in conjunction
  :::  with the @SYSLOGx environment variables.
  :::
- :::  (Mar 2014) v3.13 -- Upgraded the DebugMode options to add another
+ :::  (Mar 2014) v10.2 -- Upgraded the DebugMode options to add another
  :::  variable (@PRINT_IF_DEBUG). Also revamped the routines for logging to
  :::  Syslog servers.
  :::
- :::  (Nov 2014) v4.0 -- Log files are now compressed before emailing, in
+ :::  (Nov 2014) v11.0 -- Log files are now compressed before emailing, in
  :::  order to reduce attachment size.
  :::
- :::  (Dec 2014) v4.1 -- Added new logfile management.
+ :::  (Dec 2014) v11.1 -- Provide both summary and overview reports for File
+ :::  Integrity checking; Added new logfile management.
  :::
- :::  (Mar 2015) v4.3 -- Update TITLE info; Added support for both the main
+ :::  (Mar 2015) v11.4 -- Update TITLE info; Added support for both the main
  :::  and MINI editions of the CustomVariables.TXT configuration files.
  :::
- :::  (Mar 2015) v4.4 -- Capture elapsed time between script routines using
+ :::  (Mar 2015) v11.5 -- Capture elapsed time between script routines using
  :::  an updated version of DATEINFO.
  :::
- :::  (Apr 2015) v5.0 -- Major changes to the routines associated with temp
+ :::  (Apr 2015) v12.0 -- Major changes to the routines associated with temp
  :::  file generation and log processing. Temp files are now placed into
  :::  timestamped folders to facilitate multiple instances of the job running
  :::  simultaneously. Configuration info is now derived from SetDrive.BAT
  :::  rather than from @Variables.BAT.
  :::
- :::  (Nov 2015) v5.2 -- Removed DNS error output from the Syslog routines.
+ :::  (Jul 2015) v12.1 -- Tracks local logon sessions and their associated
+ :::  processes with LogonSessions from SysInternals.
  :::
- :::  (Dec 2015) v5.3 -- Will now set the RemoteRegistry service to AUTO and
- :::  start it, in order to facilitate several maintenance routines, including
- :::  system uptime and patch validation.
+ :::  (Nov 2015) v12.3 -- Removed DNS error output from the Syslog routines.
  :::
- :::  (Jan 2016) v5.4 -- Added checks for SystemState Backups, and other file
- :::  replication jobs.
+ :::  (Dec 2015) v12.4 -- Updated the SystemState Backups routine to check
+ :::  for the existence of a local Backups$ Info file, generated by the
+ :::  StorageInfo.BAT script.
  :::
- :::  (Feb 2016) v6.0 -- Eliminated the use of the @BIGLISTMIN variable;
+ :::  (Feb 2016) v13.0 -- Eliminated the use of the @BIGLISTMIN variable;
  :::  Made substantial script changes to cut the total execution time by 50%:
+ :::   --- Changed the nMAP parameters for host scans to improve performance
+ :::   --- Changed the MBSA Scan routine to run concurrently
  :::   --- Changed the NTP Events routine to run concurrently
  :::   --- Changed the Extended Uptime routine to run concurrently
  :::
- :::  (Mar 2016) v6.2 -- Streamlined the concurrency routines, and added
+ :::  (Mar 2016) v13.2 -- Streamlined the concurrency routines, and added
  :::  several new concurrency jobs, to improve the overall performance of the
  :::  information collection across multiple systems.
  :::
- :::  (Mar 2016) v6.3 -- Implemented enhanced diagnostics via v3.1 of the
+ :::  (Mar 2016) v13.3 -- Implemented enhanced diagnostics via v3.1 of the
  :::  DATEINFO utility;  Synchronized subroutines between all three of the
  :::  operations monitoring scripts: OpsLogs, SecurityLogs, UptimeReport
  :::
- :::  (Apr 2016) v6.4 -- Moved more diagnostics output to separate diagnostics
+ :::  (Apr 2016) v13.4 -- Moved more diagnostics output to separate diagnostics
  :::  logfiles, based upon the value of the @SHOW_RUNNING and the existence of
  :::  the @EXTENDED_DIAG variable.
  :::
- :::  (Apr 2016) v6.6 -- Create summary zip file for emailing purposes (all
+ :::  (Apr 2016) v13.6 -- Create summary zip file for emailing purposes (all
  :::  logs except the full detailed report).
  :::
- :::  (May 2016) v6.7 -- Added routines for verifying domain and computer
- :::  trust within Active Directory domains via the NETDOM utility;
+ :::  (May 2016) v13.7 -- Added routines for verifying domain and computer
+ :::  trust within Active Directory domains via the NETDOM utility;  Capture
+ :::  and track Windows Audit Policy settings.
  :::
- :::  (May 2016) v6.8 -- Expanded domain verification routines using NLTEST
- :::  and REPADMIN;
+ :::  (May 2016) v13.8 -- Expanded domain verification routines using NLTEST
+ :::  and REPADMIN; Improved disk cleanup routine of temp MBSA/WSUS files.
  :::
- :::  (Jun 2016) v6.9 -- Streamlined the processing of conditional assessments;
- :::  -- Added/modified several job concurrency routines;
+ :::  (Jun 2016) v13.9 -- Eliminated the "Limited Test" Option;
+ :::  -- Streamlined the processing of conditional assessments;
+ :::  -- Added/modified several job concurrency routines.
  :::
- :::  (Apr 2017) v6.10 -- DATEINFO.exe has totally replaced DOFF.exe.
+ :::  (Apr 2017) v13.10 -- DATEINFO.exe has totally replaced DOFF.exe.
  :::
- :::  (Jan 2018) v6.12 -- Changed the HELP routine to use FINDSTR;
+ :::  (Jan 2018) v13.12 -- Changed the HELP routine to use FINDSTR;
  :::  Migrated :SaveJobHistory to a subroutine, for additional flexibility;
  :::  Invalid job attempts are now recorded in the .RECORDING.TXT file.
  :::
- :::  (Feb 2018) v6.13 -- Changed Script Documentation to www.BrainWaveCC.com
+ :::  (Feb 2018) v13.13 -- Changed Script Documentation to www.BrainWaveCC.com;
  :::  -- Changed one instance of "FINDSTR /R" to "FIND" to avoid a parsing
  :::  problem with FINDSTR under certain builds of Windows 10 (first observed
  :::  under Version 1709).
  :::
- :::  (Apr 2018) v7.0 -- Replaced the troublesome UPTIME.EXE utility that
+ :::  (Apr 2018) v14.0 -- Replaced the troublesome UPTIME.EXE utility that
  :::  first came via the Windows NT Resource Kit with UPTIME2.EXE, which is
  :::  unfortunately somewhat less versatile in its reporting.  I'll get around
  :::  to developing my own UPTIME utility in a few months or so -- hopefully.
  :::
- :::  (Jun 2018) v7.1 -- Expanded JobHistory Routine to include SaveLogs;
- :::  -- Corrected an issue with UPTIME reporting (from UPTIME2.EXE);
+ :::  (May 2018) v14.1 -- Filtered Out SCHTASKS Error Messages;
+ :::  -- Changed the COREINFO Details routine to run concurrently;
+ :::  -- Expanded JobHistory Routine to include SaveLogs;
  :::  -- Support for NeoLogger has been eliminated from this script;
  :::
- :::  (Jul 2018) v7.2 -- The new BrainWave CheckParams utility is now used to
+ :::  (Jun 2018) v14.2 -- Corrected an issue with UPTIME reporting
+ :::
+ :::  (Jul 2018) v14.3 -- The new BrainWave CheckParams utility is now used to
  :::  check for the /H and /? parameters, replacing the use of FIND/FINDSTR;
  :::
- :::  (Aug 2018) v7.3 -- Removed AT command support;
+ :::  (Aug 2018) v14.4 -- Removed AT command support;
  :::
- :::  (Sep 2018) v7.4 -- Added the -NoBanner parameter to supported SysInternals
- :::  utilities (e.g. PSINFO, PSLIST, etc);
+ :::  (Sep 2018) v14.5 -- Remote Registry must be enabled before executing
+ :::  MBSA scripts in order to avoid "Windows Agent is not supported..." message;
+ :::  -- Added the -NoBanner parameter to supported SysInternals utilities;
  :::
- :::  (Oct 2018) v7.5 -- Corrected and expanded the DEBUG logging routine;
+ :::  (Oct 2018) v14.6 -- Corrected and expanded the DEBUG logging routine;
  :::
- :::  (Dec 2018) v8.0 -- Significantly overhauled the concurrency routines;
+ :::  (Dec 2018) v15.0 -- Significantly overhauled the concurrency routines;
  :::  -- Changed concurrency processing from process based (HANDLE.EXE) to file
  :::  marker based (*.---) to improve performance, accuracy and stability;
  :::  -- Added exemption and max time options to the concurrency routines;
+ :::  -- Converted nMap and PSLIST into concurrency jobs;
+ :::  -- Disabled check for COREINFO due to process randomly stalling via PSEXEC;
+ :::  -- Corrected "--host-timeout" parameter in nMap routines which had changed;
  :::  -- Replaced NETDOM / NET VIEW with ADFIND to generate dynamic device lists;
  :::  -- Added global @DNSDOMAINS variable for processing multiple AD domains;
  :::  -- Changed ECHO. to ECHO: for displaying blank lines;
  :::  -- Change Code Page to 437 to avoid problems with FINDSTR /R and some other
  :::  code pages;
  :::
- :::  (Feb 2019) v8.1 -- Added a check for missing Concurrency Script routines;
+ :::  (Feb 2019) v15.1 -- Added a check for missing Concurrency Script routines;
  :::  -- Move MBSA/WSUS cleanup routines to the beginning of the processing job;
  :::
- :::  (Feb 2019) v8.2 -- Display duration variance for each section as compared
+ :::  (Feb 2019) v15.2 -- Display duration variance for each section as compared
  :::  to most recently completed job;
  :::
- :::  (Mar 2019) v8.3 -- Enabled Code Page 1252 Support;
+ :::  (Mar 2019) v15.3 -- Enabled Code Page 1252 Support;
  :::  -- Record additional attributes in the Job History log;
  :::  -- Prevent DEBUG MODE data from being stored in the .RECORDING.TXT file
  :::
- :::  (Sep 2019) v8.4 -- Use CHECKPARAMS to evaluate parameters besides /? /H;
+ :::  (Sep 2019) v15.4 -- Use CHECKPARAMS to evaluate parameters besides /? /H;
  :::  -- Enhanced routine for displaying excessive process file handles;
  :::  -- Debut of SubString.exe to more easily manage string substitutions;
+ :::  -- Corrected the evaluations of @WSUS_AGE and @MBSA_AGE;
  :::
- :::  (Sep 2019) v8.5 -- Add A+ option to enable AD Info and override config settings;
+ :::  (Sep 2019) v15.5 -- Allow PAEXEC as replacement for PSEXEC;
+ :::  -- Add A+ option to enable AD Info and override config settings;
  :::
- :::  (Oct 2019) v8.6 -- Updated :ShowStatus routine to reset TITLE/CodePage;
+ :::  (Oct 2019) v15.6 -- Updated :ShowStatus routine to reset TITLE/CodePage;
  :::
- :::  (Oct 2019) v9.0 -- Return of the MINI report (for large networks);
+ :::  (Oct 2019) v16.0 -- Return of the MINI report (for large networks);
  :::  -- Increase Maximum Currency Jobs to 199 (from 99);
  :::  -- Ensure a single pass for each system through the concurrency routines;
  :::  -- Changed the :CheckJobHistory routine to run concurrently;
  :::
- :::  (Oct 2019) v9.1 -- Update :PadLeft and :PadRight routines;
+ :::  (Oct 2019) v16.1 -- Update :PadLeft and :PadRight routines;
  :::
- :::  (Oct 2019) v9.2 -- Change default dynamic list to Servers Only, and add
+ :::  (Oct 2019) v16.2 -- Change default dynamic list to Servers Only, and add
  :::  an option for stipulating a server and workstation dynamic list;
  :::
- :::  (Dec 2019) v9.3 -- Eliminate blank directories in SYSTEMSTATE reports;
+ :::  (Dec 2019) v16.3 -- Eliminate blank directories in SYSTEMSTATE reports;
  :::  Update script duration check in both parts of the concurrency routines;
  :::  Added the @MAX_SPAWN_TIME variable to control concurrency job initiation;
  :::
- :::  (Jan 2020) v9.4 -- Added new Time Calculation Subroutine;
+ :::  (Jan 2020) v16.4 -- Added new Time Calculation Subroutine;
  :::  -- Capture Mini CPU Benchmark Results (based on GetPrimeNumbers.exe);
  :::  -- Corrected the :GetParams routine to deal with quoted custom values;
  :::  -- Added a routine for validating integer parameters;
  :::  -- Refactored the :Prepare4Syslog routine;
  :::  -- Consolidate :PadLeft and :PadRight routines;
  :::
- :::  (Feb 2020) v9.5 -- Refactored the time calculation routines;
+ :::  (Feb 2020) v16.5 -- Refactored the time calculation routines;
  :::
- :::  (May 2020) v10.0 -- Migrated :DebugMode routine to SetDrive.BAT;
+ :::  (May 2020) v17.0 -- Migrated :DebugMode routine to SetDrive.BAT;
  :::  -- Added :Get-DATEINFO routine to obtain detailed OS Build Info;
- :::  -- Added Remote Execution via PSEXEC, PAEXEC, and BeyondExec (in that order);
+ :::  -- Re-enabled COREINFO processing, since an updated binary was released;
  :::  -- Added new input files (@OPSCONFIG and @TESTOPSCFG) to control which
  :::  monitoring routines are enabled or disabled in production and test modes;;
  :::  -- Changed default for Remote Execution from PAEXEC to PSEXEC to fix logging;
  :::  -- Log remote network sessions via NetSess.exe;
  :::  -- Removed obsolete/legacy routines;
  :::
- :::  (Jun 2020) v10.1 -- Updated :DisplayTitle routine to suppress STDERR output;
+ :::  (Jun 2020) v17.1 -- Updated :DisplayTitle routine to suppress STDERR output;
  :::  -- Updated :ComparePerformance to use new DATEINFO comparison feature;
  :::
- :::  (Jun 2020) v10.2 -- Added Sorted Output for CPU Benchmarking;
- :::  -- Added the option for custom MonitorConfig list;
+ :::  (Jun 2020) v17.2 -- Added Sorted Output for CPU Benchmarking;
+ :::  -- Added the option for custom NetworkList and custom MonitorConfig lists;
  :::
- :::  (Jul 2020) v10.3 -- Streamline the search for memory dump files (*.DMP) in
+ :::  (Jul 2020) v17.3 -- Streamline the search for memory dump files (*.DMP) in
  :::  conjunction with the StorageInfo.BAT script;
  :::
- :::  (Nov 2020) v10.4 -- SystemState Backups moved to \Backups$\SystemState;
+ :::  (Nov 2020) v17.4 -- SystemState Backups moved to \Backups$\SystemState;
  :::
- :::  (Nov 2020) v11.0 -- Provided extended HELP options (--?? / --H2);
+ :::  (Nov 2020) v18.0 -- Provided extended HELP options (--?? / --H2);
  :::  -- New CHECKPARAMS syntax for processing extended help options;
+ :::  -- Format nMap logs using the new BrainWave READABLE utility;
  :::
- :::  (Dec 2020) v11.1 -- Expanded Get-DATEINFO to obtain physical memory;
+ :::  (Dec 2020) v18.1 -- Expanded Get-DATEINFO to obtain physical memory;
  :::
- :::  (Dec 2020) v11.2 -- Check if Windows Is Waiting on a Reboot;
+ :::  (Dec 2020) v18.2 -- Check if Windows Is Waiting on a Reboot;
  :::  -- The /UP2 parameter ensures the use of UPTIME2.EXE vs UPTIME.EXE;
  :::  -- The /UPL parameter ensures the use of the legacy Microsoft UPTIME.EXE;
  :::
- :::  (Jan 2021) v11.3 -- Display Disk I/O Calculations via Microsoft DiskSpd;
+ :::  (Jan 2021) v18.3 -- Display Disk I/O Calculations via Microsoft DiskSpd;
  :::  -- Display CPU benchmarks sorted (by time) and unsorted;
  :::
- :::  (Feb 2021) v11.4 -- Update CPU Benchmarks to include Multithreaded Results
+ :::  (Feb 2021) v18.4 -- Update CPU Benchmarks to include Multi-Threaded Results
  :::  using the new/updated BrainWave PrimePlus;
  :::
- :::  (Mar 2021) v11.5 -- Add GPO assessment and validation to the AD reporting;
+ :::  (Mar 2021) v18.5 -- Add GPO assessment and validation to the AD reporting;
  :::  -- Fixed an issue where scheduled jobs are saved with the /S option in them;
+ :::  -- Use CCALC to more accurately calculate and alert on low disk space events;
  :::  -- Streamline "Needs a Reboot" checking;
  :::
- :::  (Apr 2021) v11.6 -- Provide tally of the OS Version/Build;
+ :::  (Apr 2021) v18.6 -- Provide tally of the OS Version/Build;
  :::  -- Expanded header summary to include output and configuration file info;
  :::  -- Improve the condensed reporting format for SystemState backups;
  :::
- :::  (Nov 2021) v11.7 -- Delete All Temp MSBA/WSUS Files at start, regardless of age;
+ :::  (Nov 2021) v18.7 -- Delete All Temp MSBA/WSUS Files at start, regardless of age;
  :::
- :::  (Jan 2022) v12.0 -- Added a routione for Remote System Validation Checks;
+ :::  (Jan 2022) v19.0 -- Added a routione for Remote System Validation Checks;
+ :::  -- Replaced FNR with BrainWave Readable v2.0 to clean up AuditPol reports;
  :::  -- Modify the @NAMECHK verification to include \ prefix;
  :::  -- Corrected and expanded sorting in CPU Benchmark summary;
  :::
- :::  (Feb 2022) v12.1 -- Added a routine to capture and display machine serial#;
+ :::  (Feb 2022) v19.1 -- Added a routine to capture and display machine serial#;
  :::
- :::  (May 2022) v12.2 -- Added the @NEEDS_REBOOT variable to the OS info routine;
+ :::  (May 2022) v19.2 -- Added the @NEEDS_REBOOT variable to the OS info routine;
  :::
- :::  (Oct 2023) v12.3 -- Change the way the @SCRIPT_BEG# variable is
+ :::  (Oct 2023) v19.3 -- Change the way the @SCRIPT_BEG# variable is
  :::  calculated in various subroutines by using DATEINFO instead of %DATE%;
  :::  -- Added more flexibility in the Concurrency Scripts by way of @MAX_RUN_TIME;
+ :::  -- Added nMap scan for current SSL/TLS Ciphers;
  :::
- :::  (Jan 2024) v12.4 -- Eliminate BeyondExecv2 and favor PAEXEC for remote access;
+ :::  (Jan 2024) v19.4 -- Eliminate BeyondExecv2 and favor PAEXEC for remote access;
  :::
- :::  (Mar 2024) v13.0 -- Added several support routines for summary reporting;
+ :::  (Mar 2024) v19.5 -- Eliminate COMPINFO from all routines, since it crashes on
+ :::  some systems when running locally;
+ :::
+ :::  (Mar 2024) v20.0 -- Added several support routines for summary reporting;
  :::  -- Added the @PATCH_LIST variable to highlight systems needing to be patched;
  :::  -- Added the @REBOOT_LIST variable to highlight systems needing a reboot;
+ :::  -- Added the @LOWSPACE_LIST variable to highlight systems with low storage;
+ :::  -- Replaced the deprecated MBSA with WMIC QFE LIST to obtain the current list
+ :::  of Windows patches installed on the machine.
  :::  -- Updated the :VerifyAccess routine and applied it to Concurrency routines;
+ :::  -- Added a summary displaying the most recent patch date for all devices;
  :::
- :::  (Apr 2024) v13.1 -- Changed log generation order to streamline log review;
+ :::  (Apr 2024) v20.1 -- Changed log generation order to streamline log review;
  :::  -- Correct deficiency in /A+ and /A- parameters and how AD Info is checked;
  :::  -- Add a clean-execution mode to the concurrency routines;
+ :::  -- Add detailed timing to nMap segment scan routines;
  :::
- :::  (May 2024) v13.2 -- Check for essential utilities with FINDFILES;
+ :::  (May 2024) v20.2 -- Check for essential utilities with FINDFILES;
  :::  -- Tracking Old User and Machine Accounts via NetPWage;
  :::  -- Added file validation to Concurrency scripts via FINDFILES;
  :::  -- Added PID info to the checks for excess file handles;
  :::  -- Added logging when (un)scheduling jobs;
  :::
- :::  (May 2024) v13.3 -- Added Domain Controller counts for the AD routines;
+ :::  (May 2024) v20.3 -- Added Domain Controller counts for the AD routines;
  :::  -- Added count and summary for tracking domain trust issues;
  :::  -- Allow Monitor config settings to be overridden at command prompt;
  :::
- :::  (Jun 2024) v13.4 -- Expanded time tracking within each concurrency section;
+ :::  (Jun 2024) v20.4 -- Expanded time tracking within each concurrency section;
+ :::  -- Display Age of Most Recent Jobs for File Integrity Checks;
  :::  -- Add Release Date of Current Windows Build to Output;
  :::  -- Streamline the serial# acquisition process via DATEINFO;
+ :::  -- Added the @PATCH_LIST variable to QFE processing routines;
  :::
- :::  (Jul 2024) v13.5 -- Streamlined the accessibility verification routines;
+ :::  (Jul 2024) v20.5 -- Added full build info to Patch Management stats;
+ :::  -- Streamlined the accessibility verification routines;
  :::  -- Replaced the :RunCMD routine with just a CALL command;
  :::  -- Capture primary Private and Public IP Addresses of monitoring system;
  :::
- :::  (Sep 2024) v13.6 -- Check for running AV/Endpoint Protection processes;
+ :::  (Sep 2024) v20.6 -- Check for running AV/Endpoint Protection processes;
  :::  -- Check for running OS and Application patch management processes;
  :::  -- Provide a limited testing mode with special settings enabled: /QA;
+ :::  -- Remove old WSUS/MBSA reporting routine;
  :::  -- Refactoring of the scheduled jobs verification routine;
  :::  -- Extended :ForwardToSyslog to update any locally running syslog service;
  :::
- :::  (Sep 2024) v13.7 -- Create Unicode Logs with a new utility: WriteBOM.exe;
+ :::  (Sep 2024) v20.7 -- Create Unicode Logs with a new utility: WriteBOM.exe;
  :::  -- Created :LogCriticalFailure routine for early job failures;
  :::  -- Removed :ChangeCodePage routine;
  :::
- :::  (Feb 2025) v13.8 -- Process string tokens accurately via a new utility: FindToken.exe;
+ :::  (Feb 2025) v20.8 -- Process string tokens accurately via a new utility: FindToken.exe;
  :::  -- New data capture with MiTec System Information X utility (incomplete);
  :::
- :::  (Jul 2025) v13.9 -- Ensure that logs are consistently generated in UTF8;
+ :::  (Jul 2025) v20.9 -- Ensure that logs are consistently generated in UTF8;
  :::  -- Added checks for WMIC.exe since Microsoft has deprecated it in Windows;
  :::  -- Refactor subroutines related to obtaining and displaying serial numbers;
  :::
- :::  (Aug 2025) v13.10 -- Corrected error the generated invalid count for @LIVESYS;
+ :::  (Aug 2025) v20.10 -- Corrected error the generated invalid count for @LIVESYS;
+ :::  -- Update nMap parameters to ensure local network scans;
  :::
- :::  (Aug 2025) v14.0 -- Added aggregated per-server time tracking statistics;
+ :::  (Aug 2025) v21.0 -- Added aggregated per-server time tracking statistics;
  :::  -- Streamlined the UPTIME2 process by running it via remote shell;
  :::
- :::  (Sep 2025) v14.1 -- Generate hashes of zipped integrity logs to email;
+ :::  (Sep 2025) v21.1 -- Generate hashes of zipped integrity logs to email;
  :::  -- Streamline file handle notification processing;
  :::
- :::  (Oct 2025) v14.2 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
+ :::  (Oct 2025) v21.2 -- Replaced instances of HEAD/TAIL/TYPE with READABLE;
  :::  -- Expanded the logging of time for the ADINFO routines;
  :::
- :::  (Oct 2025) v14.3 -- Added Config File Sizes to Summary Info;
+ :::  (Oct 2025) v21.3 -- Added Config File Sizes to Summary Info;
  :::  -- Try to install the now deprecated WMIC via DISM if not found in path;
  :::
- :::  (Jan 2026) v14.4 -- Update Syslog logging routine for script metrics;
+ :::  (Jan 2026) v21.4 -- Update Syslog logging routine for script metrics;
  :::
- :::  (Feb 2026) v14.5 -- Streamline system looping procedures for all evaluations;
+ :::  (Feb 2026) v21.5 -- Streamline system looping procedures for all evaluations;
  ::: -- Track non-domain devices via @BASIC_SCANS for network-based evaluations;
+ ::: -- Added the /YS option to force nMap scans, even with diagnostics modes;
  ::: -- Add a PING and TRACERT concurrency routine for non-nMap connectivity tests;
  :::
- :::  (Apr 2026) v14.6 -- Check for version info for the PROCEXP152.SYS driver;
+ :::  (Apr 2026) v21.6 -- Check for version info for the PROCEXP152.SYS driver;
  :::
  :::
  :::  WINDOWS SHELL SCRIPTING RESOURCES:
@@ -402,7 +466,7 @@
  rem === Updated On: 19 Apr 2026 / 03-04 Feb 2026 / 29 Sep 2025 / 01 Sep 2025
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v14.6.0.3160
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v21.6.0.4260
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -435,12 +499,19 @@
  SET @QUERY_AD=TRUE
  SET @NO_AD=-- Queries to Active Directory have been disabled, or NETDOM.EXE could not be found
  SET @NO_NETDOM=-- NETDOM Domain Trust assessment is disabled, or NETDOM.EXE could not be found
+ SET @RUN_NMAP=TRUE
+ SET @NMAP_OVERRIDE=
+ SET @NMAPDIRS="%SystemDrive%\Nmap";"%SystemDrive%\Programs\NMap";"%ProgramFiles%\Nmap";"%ProgramFiles(x86)%\Nmap"
+ SET @NO_NMAP=-- nMap Port Scanning is disabled, or nMap.EXE could not be found
  SET @NO_WMIC=-- WMI Command line is disabled, or WMIC.EXE could not be found
  SET @RUN_WMIC=TRUE
+ SET @QFE_CMD=QFE GET Caption,Description,HotFixID,InstalledBy,InstalledOn /FORMAT:TABLE
  SET @EPP_PROCESSES=MsMpEng MpDefenderCoreService MsSense NisSrv
  SET @PATCH_PROCESSES=NiniteAgent DCAgentService Action1
+ SET @NMAP_TIME=00:30:00
  SET @TINY_TIME=00:01:00
  SET @SHORT_TIME=00:10:00
+ SET @COREINFO_TIME=00:30:00
  SET @MAX_RUN_TIME=01:00:00
  SET @MAX_SPAWN_TIME=00:10:00
  SET @TREE_REGEX="|.*|.*[|+\\] \.SAFE Folder.PATH Volume.serial ---InstallRoot ---Logs ---Database _vti_"
@@ -455,6 +526,8 @@
  SET @ADQUERY_O=%@ADQUERY_S%
  SET @DEFAULT_CONFIG=ADINFO OSPLATFORM SYSTIME UPTIME_SUMMARY BOOTTIME CPUBENCH MEMDUMP HANDLES SSBACKUPS_SUMMARY NTP TRUSTS PROCINFO_BW JOBHISTORY UPTIME
  SET @BW_PARAMS=--Script-Variables --No-Symbols
+ SET @FORMAT_OLD_AUDITPOL=-X -E --LC "*" --DL 1 --NL 2 --SK "\nRunning;\n(X) Audit"
+ SET @FORMAT_NEW_AUDITPOL=-X -E --LC "*" --DL 1 --NL 2 --SK "\nSystem audit policy" --LA "\nCategory" --SB "\nLogon;\nObject;\nPrivilege;\nDetailed;\nPolicy;\nAccount;\nDS"
 
  rem -- Checksum Variables for Log Validation
  SET @VALID_HASHES=MD5 SHA1 SHA2 SHA3 SHA256 BLAKE2 BLAKE3
@@ -477,10 +550,10 @@
  SET @DONE=.~~~
 
  rem -- Job Scheduling Variables
- SET @JOBNAME=Daily Uptime Report
+ SET @JOBNAME=Daily Operations Logs
  SET @JOBUSER=SYSTEM
  SET @JOBFREQ=DAILY
- SET @JOBTIME=04:01:00
+ SET @JOBTIME=06:01:00
  SET @JOBDATE=
  SET @JOBPATH="%~f0" %@PARAMS%
  SET @JOBTYPE=
@@ -489,9 +562,9 @@
  CALL "%~dp0SetDrive.BAT" "%~n0"
 
  rem -- Set Job Specific Information, Including Valid @MACHINELIST Variable
- SET @MACHINELIST=%@UPTIMELIST%
+ SET @MACHINELIST=%@SERVERLIST%
  SET @MONITORCFG=%@OPSCONFIG%
- SET @LOGNAME=UptimeReport
+ SET @LOGNAME=OperationsLog
  SET @JOBINFO_F=Complete %@JOBNAME% from %COMPUTERNAME% for %@TODAY%
  SET @JOBINFO_S=%@JOBINFO_F:Complete=Summary%
  SET @JOBINFO_P=%@JOBINFO_F:Complete=Partial%
@@ -514,6 +587,7 @@
  SET @DBGPATH=%TEMP%\%~n0.%@DIRSTAMP_R%
  SET @MINDIV=\%@DIVIDER-:~-77%\
  SET @MAXDIV=\%@DIVIDER:~-77%\
+ SET @NETSH=NetShell-Input.TXT
 
  rem -- Ensure Valid Log Processing Values
  CALL :GetInteger @MINROWS "%@MIN_LOG_ROWS%" 005 001 010
@@ -538,6 +612,8 @@
  CALL :GetParams "IM-"       & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Disable Individual Metrics;& SET @TRACK_METRICS=)
  CALL :GetParams "A+"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Get AD Domain Info;&         SET @QUERY_AD=TRUE)
  CALL :GetParams "A-"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! No AD Domain Info;&          SET @QUERY_AD=)
+ CALL :GetParams "NS"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! No nMAP Scans;&              SET @RUN_NMAP=)
+ CALL :GetParams "YS"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Run nMAP Scans;&             SET @RUN_NMAP=TRUE& SET @NMAP_OVERRIDE=TRUE)
  CALL :GetParams "P+"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Enable Concurrency;&         SET @CONCURRENCY=TRUE)
  CALL :GetParams "P-"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Disable Concurrency;&        SET @CONCURRENCY=FALSE)
  CALL :GetParams "HC"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! High Concurrency;&           SET @HIGH_CONCURRENCY=TRUE)
@@ -545,6 +621,7 @@
  CALL :GetParams "R-"        & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Hide Concurrency Log;&       SET @SHOW_RUNNING=FALSE)
  CALL :GetParams "T"         & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Use Test List;
 	 SET @MACHINELIST=%@TESTSRVLIST%
+	 SET @NETWORKLIST=%@TESTNETLIST%
 	 SET @MONITORCFG=%@TESTOPSCFG%
 	 SET @LOGFILE=%@TESTLOG%
 	 SET @RCPT-TO=%@TEST-RCPTS%
@@ -557,6 +634,7 @@
 	 SET DEBUG=COPY
 	 SET @SHOW_RUNNING=TRUE
 	 SET @EXTENDED_DIAG=TRUE
+	 SET @NETWORKLIST=%@TESTNETLIST%
 	 SET @MONITORCFG=%@TESTOPSCFG%
 	 SET @MAILSENDER=LogAdmin-Test%@ORGFQDN%
 	 SET @RCPT-TO=%@TEST-RCPTS%
@@ -587,6 +665,7 @@
  CALL :GetParams "LC" & IF DEFINED @OK (SET @NOTICE=!@NOTICE! Use Limited Config List;&  SET @MONITORCFG=%@TESTOPSCFG%)
 
  CALL :GetParams "CL CUSTOM"  @CUSTOM_SVR_LIST & IF DEFINED @CUSTOM_SVR_LIST (SET @NOTICE=!@NOTICE! Use Custom Server List;&  SET @MACHINELIST=!@CUSTOM_SVR_LIST!& SET @TESTSRVLIST=!@CUSTOM_SVR_LIST!& SET @NEWLOG=FALSE)
+ CALL :GetParams "CN CUSTNET" @CUSTOM_NET_LIST & IF DEFINED @CUSTOM_NET_LIST (SET @NOTICE=!@NOTICE! Use Custom Network List;& SET @NETWORKLIST=!@CUSTOM_NET_LIST!& SET @TESTNETLIST=!@CUSTOM_NET_LIST!)
  CALL :GetParams "CC CUSTCFG" @CUSTOM_CFG_LIST & IF DEFINED @CUSTOM_CFG_LIST (SET @NOTICE=!@NOTICE! Use Custom Config List;&  SET @MONITORCFG=!@CUSTOM_CFG_LIST!&  SET @TESTOPSCFG=!@CUSTOM_CFG_LIST!)
 
  rem -- Check for Valid Monitor Configuration List
@@ -619,9 +698,18 @@
 
  rem ==========================================================================
  rem === Identify/Validate Various Executable Paths (nMap, WMIC, etc)
- rem === Updated On: 30 Oct 2025 / 07 Jul 2025
+ rem === Updated On: 04 Feb 2026 / 30 Oct 2025 / 09 Jul 2025 / 21 Mar 2024 / 06 Oct 2019
  rem ==========================================================================
 :Check4These
+
+ rem -- nMAP
+ SET @NMAP=
+ FOR %%F IN (%@NMAPDIRS%) DO IF EXIST "%%~F" (
+	 SET @NMAP=%%~F
+	 PATH !PATH!;%%~F
+ )
+ IF DEFINED @NMAP_OVERRIDE SET @RUN_NMAP=TRUE
+ IF NOT EXIST "%@NMAP%\nMAP.exe" SET @RUN_NMAP=
 
  rem -- WMIC
  FINDFILES --RC -F WMIC.EXE || DISM /Online /Add-Capability /CapabilityName:WMIC || SET @RUN_WMIC=
@@ -721,7 +809,7 @@
 	 ECHO Private IP address: %@PRIVATE_IP%  /  Public IP address: %@PUBLIC_IP%
 	 ECHO:
 	 ECHO %@DIVIDER*%
-	 ECHO *** SYSTEM UPTIME REPORT for %@ORGNAME% [%@SYSENVIRONMENT%]
+	 ECHO *** SYSTEM OPERATIONS LOG for %@ORGNAME% [%@SYSENVIRONMENT%]
 	 ECHO ***
 	 ECHO *** For questions/comments/complaints, contact %@ORGADMIN%
 	 ECHO ***
@@ -775,7 +863,9 @@
 :ListProcessingVars
  SET @BASIC_ONLY=0
  SET @MACHINE_LOOP#=FOR /F "USEBACKQ EOL=;" %%s IN ("%@MACHINELIST%") DO
+ SET @NETWORK_LOOP#=FOR /F "USEBACKQ EOL=;" %%s IN ("%@NETWORKLIST%") DO
  SET @MACHINE_LOOP$=%@MACHINE_LOOP#% IF NOT DEFINED @LIMITED_%%~s
+ SET @NETWORK_LOOP$=%@NETWORK_LOOP#% IF NOT DEFINED @LIMITED_%%~s
 
  rem -- Generate Limited Scan List
  FOR %%Z IN (%@BASIC_SCANS%) DO (
@@ -795,7 +885,9 @@
  SET @NUMSYS=0
  SET @ALLSYS=0
  SET @SKIPPED=0
+ SET @NETWORKS=0
  SET @BASIC_LIST=
+ %@NETWORK_LOOP$% SET /A @NETWORKS+=1
  %@MACHINE_LOOP#% (
 	 SET /A @ALLSYS+=1& IF NOT DEFINED @LIMITED_%%~s SET /A @NUMSYS+=1
 	 SET @LEN=
@@ -821,6 +913,7 @@
  rem ==========================================================================
 :GenerateBaseLogs
  CALL :GetFileSize @MC "%@MONITORCFG%"
+ CALL :GetFileSize @NL "%@NETWORKLIST%"
  CALL :GetFileSize @ML "%@MACHINELIST%"
  CALL :GetFileSize @BL "%@BUILDINFO-LATEST%"
 
@@ -829,8 +922,10 @@
 	 ECHO %@DIVIDER*%
 	 ECHO *** PRIMARY OUTPUT FILE ... %@LOGFILE%
 	 ECHO *** CONFIGURATION FILE .... %@MC%
+	 ECHO *** LIST OF NETWORKS ...... %@NL%
 	 ECHO *** LIST OF SYSTEMS ....... %@ML%
 	 ECHO *** LIST OF OS VERSIONS ... %@BL%
+	 ECHO *** TOTAL # OF NETWORKS ... %@NETWORKS%
 	 ECHO *** TOTAL # OF SYSTEMS .... %@NUMSYS% / %@ALLSYS%
 	 ECHO *** BASIC SCANS ONLY ...... %@SKIPPED%  %@BASIC_LIST%
 	 ECHO *** MAX JOB CONCURRENCY ... %@PROC_LIMIT%
@@ -851,16 +946,37 @@
 :GenerateTempScripts
  CALL :Heading GENERATE CONCURRENCY SCRIPTS
  CALL :Make-Concurrency-Script "BWSYSINFO" DATEINFO "%@BW_PARAMS%" #LOCAL#
+ CALL :Make-Concurrency-Script "COREINFO" COREINFO "%@PSPARAMS%" #LOCAL#
  CALL :Make-Concurrency-Script "GETSYS" GETSYS "/so /ld /na /la /id /usb" #LOCAL#
+ CALL :Make-Concurrency-Script "IPCONFIG" IPCONFIG "/ALL" #LOCAL#
  CALL :Make-Concurrency-Script "JOBHISTORY" XCOPY "%%%%~1\Logs$\*.RECORDING.TXT %@TMPPATH%\%%%%~1 /I /C /S"
+ CALL :Make-Concurrency-Script "NETSH" NETSH "-F %%%%SystemRoot%%%%\Temp\%@NETSH%" #LOCAL#
  CALL :Make-Concurrency-Script "NTP1" W32TM "/QUERY /COMPUTER:%%%%@LSERVER%%%% /CONFIGURATION"
  CALL :Make-Concurrency-Script "NTP2" PSLOGLIST "%@PSACCEPT% %%%%~1 -I 11,17,22,29,35,37,38,47,50 -D 1"
+ CALL :Make-Concurrency-Script "PSINFO" PSINFO "%@PSPARAMS% %%%%~1 -d"
  CALL :Make-Concurrency-Script "PSLIST1" PSLIST "%@PSPARAMS% %%%%~1"
+ CALL :Make-Concurrency-Script "PSLIST2" PSLIST "%@PSPARAMS% %%%%~1 -t"
+ CALL :Make-Concurrency-Script "PSLIST3" PSLIST "%@PSPARAMS% %%%%~1 -d -m"
+ CALL :Make-Concurrency-Script "TCPVIEW" TCPVCON "%@PSACCEPT% -acn" #LOCAL#
+ CALL :Make-Concurrency-Script "SCHTASKS1" SCHTASKS "/QUERY /S %%%%@LSERVER%%%% /FO TABLE"
+ CALL :Make-Concurrency-Script "SCHTASKS2" SCHTASKS "/QUERY /S %%%%@LSERVER%%%% /FO LIST /V"
+ CALL :Make-Concurrency-Script "SRVINFO" SRVINFO "-NS %%%%~1"
  CALL :Make-Concurrency-Script "SYSINFO" SYSTEMINFO "/S %%%%~1"
 
  CALL :Make-Concurrency-Script "PING" PING "%%%%@LSERVER%%%%"
  CALL :Make-Concurrency-Script "TRACEROUTE" TRACERT "%%%%@LSERVER%%%%"
  CALL :Make-Concurrency-Script "PROCEXP152" SIGCHECK "%@PSPARAMS% -S %%%%WINDIR%%%%\System32\ProcExp152*.*" #LOCAL#
+
+ IF DEFINED @RUN_WMIC (
+	 CALL :Make-Concurrency-Script "QFEINFO" WMIC "/NODE:"%%%%@LSERVER%%%%" %@QFE_CMD%"
+	 CALL :Make-Concurrency-Script "SERVICES" WMIC "/NODE:"%%%%@LSERVER%%%%" SERVICE GET DisplayName,State /FORMAT:TABLE"
+ )
+
+ IF DEFINED @RUN_NMAP (
+	 CALL :Make-Concurrency-Script "NMAP1" "%@NMAP%\nMap.exe" "-v --host-timeout 60s -Pn %%%%@LSERVER%%%%"
+	 CALL :Make-Concurrency-Script "NMAP2" "%@NMAP%\nMap.exe" "-v -A -Pn --top-ports 32 --host-timeout 180s --version-intensity 8 %%%%@LSERVER%%%%"
+	 CALL :Make-Concurrency-Script "NMAP3" "%@NMAP%\nMap.exe" "-v --host-timeout 90s --system-dns -sn %%%%~1"
+ )
 
  IF /I "%@USE_UPTIME_LEGACY%"=="TRUE" (
 	 CALL :Make-Concurrency-Script "UPTIME1" UPTIME "%%%%~1"              #REMOTE_REG#
@@ -902,9 +1018,20 @@
 	 )
  )
 
+ IF DEFINED *NMAPSCAN_SUMMARY (
+	 CALL :Heading SCAN LOCAL NETWORK SEGMENTS [SUMMARY]*
+	 IF DEFINED @RUN_NMAP (
+		 %@NETWORK_LOOP#% CALL :Get-Concurrent-Info %%~s "nMap Segment" NMAP3 "%@NMAP_TIME%" ##
+		 %@NETWORK_LOOP#% CALL :ScanSegment %%~s
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_NMAP% >>%%O 2>&1
+	 )
+ )
+
 	 CALL :Heading INITIALIZE SYSTEM VARIABLES*
 	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "BWCC System Info"      BWSYSINFO
 	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Microsoft System Info" SYSINFO
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "PSINFO Stats"          PSINFO
 
  IF DEFINED *TRUSTS (
 	 CALL :Heading VERIFY DOMAIN TRUST
@@ -944,9 +1071,30 @@
 	 %@MACHINE_LOOP$% CALL :BootTime %%~s
  )
 
+ IF DEFINED *TIMEZONE (
+	 CALL :Heading CURRENT SYSTEM TIMEZONE
+	 %@MACHINE_LOOP$% CALL :SystemTimeZone %%~s
+ )
+
  IF DEFINED *SHOWMEM (
 	 CALL :Heading SYSTEM MEMORY [via SYSTEMINFO]
 	 %@MACHINE_LOOP$% CALL :ShowMem %%~s
+ )
+
+ IF DEFINED *PATCHSTATUS_SUMMARY (
+	 CALL :Heading DETERMINE WINDOWS PATCH STATUS [SUMMARY]*
+	 IF DEFINED @RUN_WMIC (
+		 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Windows QFE Status" QFEINFO "%@SHORT_TIME%"
+		 %@MACHINE_LOOP$% CALL :GetPatchStatus %%~s
+		                  CALL :GetPatchStatus ----
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_WMIC% >>%%O 2>&1
+	 )
+ )
+
+ IF DEFINED *FILEINTEGRITY_SUMMARY (
+	 CALL :Heading SYSTEM/FILE INTEGRITY MONITORING [SUMMARY]
+	 %@MACHINE_LOOP$% CALL :CheckIntegrity_SUMMARY %%~s
  )
 
  IF DEFINED *ENDPOINT_PROTECTION (
@@ -961,10 +1109,27 @@
 	 %@MACHINE_LOOP$% CALL :3rdPartyPatching %%~s
  )
 
+ IF DEFINED *DISKSPACE_SUMMARY (
+	 CALL :Heading DISK SPACE USAGE [SUMMARY]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Storage Info" SRVINFO
+	 %@MACHINE_LOOP$% CALL :DiskSpace_Summary %%~s
+	                  CALL :DiskSpace_Summary ----
+ )
+
  IF DEFINED *PROCEXP152_VERSION (
 	 CALL :Heading PROCEXP152.SYS VERSION INFO*
 	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "PROCEXP152.* Version Info" PROCEXP152
 	 %@MACHINE_LOOP$% CALL :ProcExp152_Version %%~s
+ )
+
+ IF DEFINED *FAILEDLOGONS_SUMMARY (
+	 CALL :Heading FAILED LOGON ATTEMPTS [SUMMARY]
+	 %@MACHINE_LOOP$% CALL :FailedLogons_LOG %%~s
+ )
+
+ IF DEFINED *LOCAL_ADMIN (
+	 CALL :Heading LOCAL ADMIN MEMBERS
+	 %@MACHINE_LOOP$% CALL :AdminInfo %%~s
  )
 
  IF DEFINED *MEMDUMP (
@@ -984,9 +1149,19 @@
 	 %@MACHINE_LOOP$% CALL :GetSysInfo %%~s
  )
 
+ IF DEFINED *ZIPARCHIVES_SUMMARY (
+	 CALL :Heading ZIP ARCHIVES OF MAINTENANCE SCRIPTS
+	 %@MACHINE_LOOP$% CALL :ZipArchives %%~s
+ )
+
  IF DEFINED *SSBACKUPS_SUMMARY (
 	 CALL :Heading SYSTEMSTATE and CONFIGURATION BACKUPS
 	 %@MACHINE_LOOP$% CALL :SSBackups %%~s
+ )
+
+ IF DEFINED *AUDITPOL (
+	 CALL :Heading WINDOWS AUDIT POLICY SETTINGS
+	 %@MACHINE_LOOP$% CALL :GetAuditSettings %%~s
  )
 
  IF DEFINED *CPUBENCH (
@@ -995,9 +1170,43 @@
 	                  CALL :CheckBenchmark_SUMMARY ----
  )
 
+ IF DEFINED *OSVER_Y (
+	 CALL :Heading OS VERSION [via SYSTEMINFO]
+	 %@MACHINE_LOOP$% CALL :OSVersion-Y %%~s
+ )
+
+ IF DEFINED *OSVER_P (
+	 CALL :Heading OS VERSION [via PSINFO]
+	 %@MACHINE_LOOP$% CALL :OSVersion-P %%~s
+ )
+
+ IF DEFINED *OSVER_W (
+	 CALL :Heading OS VERSION [via WMIC]
+	 IF DEFINED @RUN_WMIC (
+		 %@MACHINE_LOOP$% CALL :OSVersion-W %%~s
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_WMIC% >>%%O 2>&1
+	 )
+ )
+
+ IF DEFINED *OSVER_S (
+	 CALL :Heading OS VERSION [via SRVINFO]
+	 %@MACHINE_LOOP$% CALL :OSVersion-S %%~s
+ )
+
+ IF DEFINED *PROCINFO (
+	 CALL :Heading OS and CPU INFO
+	 %@MACHINE_LOOP$% CALL :ProcessorInfo %%~s
+ )
+
  IF DEFINED *PROCINFO_BW (
 	 CALL :Heading OS and CPU INFO w/ARCHITECTURE
 	 %@MACHINE_LOOP$% CALL :ProcessorInfo-BW %%~s
+ )
+
+ IF DEFINED *MEMUSAGE (
+	 CALL :Heading SYSTEM MEMORY USAGE*
+	 %@MACHINE_LOOP$% CALL :MemoryUsage %%~s
  )
 
  IF DEFINED *PING (
@@ -1010,6 +1219,102 @@
 	 CALL :Heading LOCAL TRACEROUTE PROBE*
 	 %@MACHINE_LOOP#% CALL :Get-Concurrent-Info %%~s "Traceroute Probe" TRACEROUTE "%@TINY_TIME%" $$
 	 %@MACHINE_LOOP#% CALL :TraceRouteProbe %%~s
+ )
+
+ IF DEFINED *SESSIONS (
+	 CALL :Heading REMOTE LOGON SESSIONS
+	 %@MACHINE_LOOP$% CALL :ShowRemoteSessions %%~s
+ )
+
+ IF DEFINED *LOCALSESSIONS (
+	 CALL :Heading LOCAL LOGON SESSIONS W/PROCESSES
+	 %@MACHINE_LOOP$% CALL :ShowLogonSessions %%~s
+ )
+
+ IF DEFINED *OPENPORTS_SUMMARY (
+	 CALL :Heading OPEN NETWORK PORTS [SUMMARY]*
+	 IF DEFINED @RUN_NMAP (
+		 %@MACHINE_LOOP#% CALL :Get-Concurrent-Info %%~s "nMap Ports" NMAP1 "%@NMAP_TIME%" $$
+		 %@MACHINE_LOOP#% CALL :GetNetworkMap %%~s
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_NMAP% >>%%O 2>&1
+	 )
+ )
+
+ IF DEFINED *PATHINFO (
+	 CALL :Heading PATH INFO
+	 %@MACHINE_LOOP$% CALL :GetPath %%~s
+ )
+
+ IF DEFINED *SHAREDFOLDERS (
+	 CALL :Heading SHARED FOLDERS
+	 %@MACHINE_LOOP$% CALL :ShowShares %%~s
+ )
+
+ IF DEFINED *DISKSPEED_SUMMARY (
+	 CALL :Heading DISK I/O MEASUREMENTS [SUMMARY]
+	 %@MACHINE_LOOP$% CALL :DiskPerf %%~s
+ )
+
+ IF DEFINED *NETSHELL (
+	 CALL :Heading IP ADDRESS CONFIGURATION via NetShell [DNS, WINS, DHCP]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "NetSH Config" NetSH
+	 %@MACHINE_LOOP$% CALL :GetNetshInfo %%~s
+ )
+
+ IF DEFINED *NETSTAT_SUMMARY (
+	 CALL :Heading NETWORK CONNECTIONS -- LISTENING [via NETSTAT]
+	 %@MACHINE_LOOP$% CALL :ShowConnections-N %%~s
+ )
+
+ IF DEFINED *TCPVCON_SUMMARY (
+	 CALL :Heading NETWORK CONNECTIONS -- LISTENING [via TCPVCON]
+	 %@MACHINE_LOOP$% CALL :ShowConnections-T %%~s
+ )
+
+ IF DEFINED *AT (
+	 CALL :Heading SCHEDULED EVENTS [via AT]
+	 %@MACHINE_LOOP$% CALL :GetSchedule_AT %%~s
+ )
+
+ IF DEFINED *SCHTASKS_SUMMARY (
+	 CALL :Heading SCHEDULED EVENTS [via SCHTASKS]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Scheduled Tasks" SCHTASKS1
+	 %@MACHINE_LOOP$% CALL :GetSchedule %%~s
+ )
+
+
+ rem --------------------------------------------------------------------------
+ CALL :MailPartialReport
+ rem --------------------------------------------------------------------------
+
+
+ IF DEFINED *COREINFO (
+	 CALL :Heading CPU/PROCESSOR CORE DETAILS*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "CPU COREINFO Details" COREINFO "%@COREINFO_TIME%"
+	 %@MACHINE_LOOP$% CALL :CPUcoreInfo %%~s
+ )
+
+ IF DEFINED *DISKSPACE (
+	 CALL :Heading DISK SPACE USAGE [FULL]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Storage Info" SRVINFO
+	 %@MACHINE_LOOP$% CALL :DiskSpace %%~s
+	                  CALL :DiskSpace ----
+ )
+
+ IF DEFINED *SYSMEM_Y (
+	 CALL :Heading SYSTEM MEMORY [via SYSTEMINFO]
+	 %@MACHINE_LOOP$% CALL :ShowMem-Y %%~s
+ )
+
+ IF DEFINED *ZIPARCHIVES (
+	 CALL :Heading ZIP ARCHIVES OF MAINTENANCE SCRIPTS [FULL]
+	 %@MACHINE_LOOP$% CALL :ZipArchives %%~s FULL
+ )
+
+ IF DEFINED *SSBACKUPS (
+	 CALL :Heading SYSTEMSTATE and CONFIGURATION BACKUPS [FULL]
+	 %@MACHINE_LOOP$% CALL :SSBackups %%~s FULL
  )
 
  IF DEFINED *JOBHISTORY (
@@ -1031,11 +1336,156 @@
 	 %@MACHINE_LOOP$% CALL :TimeSource %%~s
  )
 
- IF DEFINED *DISKSPEED_SUMMARY (
-	 CALL :Heading DISK I/O MEASUREMENTS [SUMMARY]
-	 %@MACHINE_LOOP$% CALL :DiskPerf %%~s
+ IF DEFINED *NICINFO (
+	 CALL :Heading NETWORK CARD INFO
+	 %@MACHINE_LOOP$% CALL :GetNIC %%~s
  )
 
+ IF DEFINED *IPCONFIG_SUMMARY (
+	 CALL :Heading IP ADDRESS CONFIGURATION [DNS, WINS, DHCP]
+	 %@MACHINE_LOOP$% CALL :GetIPServers %%~s
+ )
+
+ IF DEFINED *IPINFO_W (
+	 CALL :Heading IP ADDRESS CONFIGURATION [DNS, WINS, DHCP]
+	 IF DEFINED @RUN_WMIC (
+		 %@MACHINE_LOOP$% CALL :GetNetworkInfo %%~s
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_WMIC% >>%%O 2>&1
+	 )
+ )
+
+ IF DEFINED *ROUTE (
+	 CALL :Heading ROUTE TABLE
+	 %@MACHINE_LOOP$% CALL :ShowRoute %%~s
+ )
+
+ IF DEFINED *NETSTAT (
+	 CALL :Heading FULL NETWORK CONNECTIONS [via NETSTAT]
+	 %@MACHINE_LOOP$% CALL :ShowConnections-N %%~s FULL
+ )
+
+ IF DEFINED *TCPVCON (
+	 CALL :Heading FULL NETWORK CONNECTIONS [via TCPVCON]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "TCP Connections" TCPVIEW
+	 %@MACHINE_LOOP$% CALL :ShowConnections-T %%~s FULL
+ )
+
+ IF DEFINED *FIREWALL (
+	 CALL :Heading WINDOWS FIREWALL RULES LIST
+	 %@MACHINE_LOOP$% CALL :SaveFirewallRules %%~s
+ )
+
+ IF DEFINED *HOSTS (
+	 CALL :Heading HOSTS FILE INFO
+	 %@MACHINE_LOOP$% CALL :ShowHosts %%~s
+ )
+
+ IF DEFINED *LMHOSTS (
+	 CALL :Heading LMHOSTS INFO
+	 %@MACHINE_LOOP$% CALL :ShowLMHosts %%~s
+ )
+
+ IF DEFINED *VERIFYLMHOSTS (
+	 CALL :Heading VERIFY LMHOSTS INFO
+	 %@MACHINE_LOOP$% CALL :VerifyLMHosts %%~s
+ )
+
+ IF DEFINED *IPCONFIG (
+	 CALL :Heading IP ADDRESS CONFIGURATION [FULL]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "IPCONFIG Settings" IPCONFIG
+	 %@MACHINE_LOOP$% CALL :GetIPConfig %%~s
+ )
+
+ IF DEFINED *SERVICE_SC (
+	 CALL :Heading SERVICE INFO
+	 %@MACHINE_LOOP$% CALL :ServiceInfo %%~s
+ )
+
+ IF DEFINED *SERVICE_W (
+	 CALL :Heading SERVICE INFO [via WMIC]*
+	 IF DEFINED @RUN_WMIC (
+		 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Services Info via WMIC" SERVICES
+		 %@MACHINE_LOOP$% CALL :ServiceInfo-W %%~s
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_WMIC% >>%%O 2>&1
+	 )
+ )
+
+ IF DEFINED *SYSMEM_P (
+	 CALL :Heading SYSTEM MEMORY USAGE [EXTENDED INFO via PSLIST]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Running Processes - Basic Info"    PSLIST2
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Running Processes - Extended Info" PSLIST3
+	 %@MACHINE_LOOP$% CALL :MemoryUsage %%~s FULL
+ )
+
+ IF DEFINED *SCHTASKS (
+	 CALL :Heading SCHEDULED EVENTS [EXTENDED INFO via SCHTASKS]*
+	 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Scheduled Tasks" SCHTASKS2
+	 %@MACHINE_LOOP$% CALL :GetSchedule %%~s FULL
+ )
+
+ IF DEFINED *OSINFO_Y (
+	 CALL :Heading FULL OS INFO [via SYSTEMINFO]
+	 %@MACHINE_LOOP$% CALL :FullOSInfo-Y %%~s
+ )
+
+ IF DEFINED *OSINFO_P (
+	 CALL :Heading FULL OS INFO [via PSINFO]
+	 %@MACHINE_LOOP$% CALL :FullOSInfo-P %%~s
+ )
+
+ IF DEFINED *OSINFO_S (
+	 CALL :Heading FULL OS INFO [via SRVINFO]
+	 %@MACHINE_LOOP$% CALL :FullOSInfo-S %%~s
+ )
+
+ IF DEFINED *DISKSPEED (
+	 CALL :Heading DISK I/O MEASUREMENTS [FULL]
+	 %@MACHINE_LOOP$% CALL :DiskPerf %%~s FULL
+ )
+
+ IF DEFINED *FAILEDLOGONS (
+	 CALL :Heading FAILED LOGON ATTEMPTS [FULL]
+	 %@MACHINE_LOOP$% CALL :FailedLogons_LOG %%~s FULL
+ )
+
+ IF DEFINED *FILEINTEGRITY (
+	 CALL :Heading SYSTEM/FILE INTEGRITY MONITORING [FULL]
+	 %@MACHINE_LOOP$% CALL :CheckIntegrity_FULL %%~s
+ )
+
+ IF DEFINED *NMAPSCAN (
+	 CALL :Heading SCAN LOCAL NETWORK SEGMENTS [FULL]*
+	 IF DEFINED @RUN_NMAP (
+		 %@NETWORK_LOOP#% CALL :Get-Concurrent-Info %%~s "nMap Segment" NMAP3 "%@NMAP_TIME%" ##
+		 %@NETWORK_LOOP#% CALL :ScanSegment %%~s FULL
+		 %@NETWORK_LOOP#% CALL :ScanSegmentSSL %%~s
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_NMAP% >>%%O 2>&1
+	 )
+ )
+
+ IF DEFINED *OPENPORTS (
+	 CALL :Heading OPEN NETWORK PORTS [FULL]*
+	 IF DEFINED @RUN_NMAP (
+		 %@MACHINE_LOOP#% CALL :Get-Concurrent-Info %%~s "nMap Ports" NMAP2 "%@NMAP_TIME%" $$
+		 %@MACHINE_LOOP#% CALL :GetNetworkMap %%~s FULL
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_NMAP% >>%%O 2>&1
+	 )
+ )
+
+ IF DEFINED *PATCHSTATUS (
+	 CALL :Heading DETERMINE WINDOWS PATCH STATUS [FULL]*
+	 IF DEFINED @RUN_WMIC (
+		 %@MACHINE_LOOP$% CALL :Get-Concurrent-Info %%~s "Windows QFE Status" QFEINFO "%@SHORT_TIME%"
+		 %@MACHINE_LOOP$% CALL :GetPatchStatus %%~s FULL
+		                  CALL :GetPatchStatus ----
+	 ) ELSE (
+		 FOR %%O IN (CON %@LOGFILE%) DO ECHO  %@NO_WMIC% >>%%O 2>&1
+	 )
+ )
  %@PAUSE_IF_DEBUG%
 
 
@@ -1384,10 +1834,10 @@
 
  IF /I "%~1"=="%@FINAL%" (
 	 SET @OUTPUT=%@LOGFILE% !@LOGFILE:%@FILESTAMP%=TXT!
-	 SET @LOGMSG=***      STATUS of DAILY UPTIME REPORT ---- FINAL JOB REPORT COMPLETED      ***
+	 SET @LOGMSG=***      STATUS of DAILY OPERATIONS LOG --- FINAL JOB REPORT COMPLETED      ***
  ) ELSE (
 	 SET @OUTPUT=%@LOGFILE% %@DIAGLOG%
-	 SET @LOGMSG=***   STATUS of DAILY UPTIME REPORT ---- PRELIMINARY JOB REPORT COMPLETED   ***
+	 SET @LOGMSG=***   STATUS of DAILY OPERATIONS LOG --- PRELIMINARY JOB REPORT COMPLETED   ***
  )
 
  rem -- Display Log Footer Message
@@ -1597,11 +2047,12 @@
  CALL :GetTime @SCRIPT_END
  CALL :PadLeft @NS "%@LIVESYS%/%@NUMSYS%/%@ALLSYS%" "." 11
  CALL :PadLeft @PL "%@PROC_LIMIT%" "0" 3
+ CALL :PadLeft @NW "%@NETWORKS%" "." 2
  CALL :CalcElapsed @ELAPSED !@SCRIPT_BEG#! !@SCRIPT_END#!
 
  SET @TRUNCATED=
  SET @SPECIAL=%@JOBTYPE%& IF NOT "%~1"=="" SET @SPECIAL= // %*
- SET @JOBHISTORY=%@JOBNAME% // SECTIONS.%@SC% // SYSTEMS.%@NS% [!@PL!] // DURATION: %@ELAPSED% // START: %@SCRIPT_BEG% // END: %@SCRIPT_END% // %~n0 %@VERSION% %@PARAMS%%@SPECIAL%
+ SET @JOBHISTORY=%@JOBNAME% // SECTIONS.%@SC% // SYSTEMS.%@NS% [!@PL!] // NETWORKS.%@NW% // DURATION: %@ELAPSED% // START: %@SCRIPT_BEG% // END: %@SCRIPT_END% // %~n0 %@VERSION% %@PARAMS%%@SPECIAL%
 
  %@VERBOSE_OFF%
  TYPE NUL >>%@TIMINGS%
@@ -1664,8 +2115,8 @@
 
 
  rem ==========================================================================
- rem === SUBROUTINE: Prepare Messages for SyslogGen Syslog Utility
- rem === Updated On: 23 Jun 2024 / 14 Jan 2020 / 12 Jun 2018
+ rem === SUBROUTINE: Prepare Messages for SyslogGen Syslog utility
+ rem === Updated On: 23 Jun 2024 / 14 Jan 2020 / 19 May 2018
  rem ==========================================================================
 :Prepare4Syslog
  rem %* = Syslog Message to be Cleaned Up
@@ -1758,6 +2209,54 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from SRVINFO
+ rem === Updated On: 26 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-SRVINFO
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_SRVINFO%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "SRVINFO" "%~2"
+ CALL :VerifyAccess %~1
+
+ IF NOT EXIST %@LOGINFO% SRVINFO -NS %~1                >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FIND /I %@SEARCH% >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from PSINFO
+ rem === Updated On: 26 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-PSINFO
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_PSINFO%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "PSINFO" %2
+ CALL :VerifyAccess %~1
+
+ IF NOT EXIST %@LOGINFO% PSINFO %@PSPARAMS% %~1 -d            >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FINDSTR /I /R %@SEARCH% >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Parse Relevant Info from SYSTEMINFO
  rem === Updated On: 26 Mar 2024 / 19 May 2020
  rem ==========================================================================
@@ -1838,7 +2337,7 @@
  rem ==========================================================================
 :Get-UPTIME
  rem %1 = Current System for Which Info Will be Obtained
- rem %2 = Selected Parameters for the UPTIME/UPTIME2 Utility
+ rem %2 = Selected Parameters for the UPTIME/UPTIME2 utility
  rem %3 = Value to Add to File Extension
  rem %4 = Search Criteria for the Execution Results
 
@@ -1889,12 +2388,116 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from IPCONFIG /ALL
+ rem === Updated On: 26 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-IPCONFIG
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_IPCONFIG%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "IPCONFIG" "%~2"
+ CALL :VerifyAccess %~1
+ IF DEFINED @ACCESSIBLE CALL :GetRemoteConsole %~1
+
+ IF NOT EXIST %@LOGINFO% %@RMTCONSOLE% IPCONFIG /ALL    >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FIND /I %@SEARCH% >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from TCPVCON (SysInternals)
+ rem === Updated On: 26 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-TCPVIEW
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Selected Parameters for the TCPVCON utility
+ rem %3 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_TCPVIEW%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "TCPVIEW" %3
+ SET @TCPNEW=FALSE
+ CALL :VerifyAccess %~1
+ IF DEFINED @ACCESSIBLE CALL :GetRemoteConsole %~1
+
+ IF NOT EXIST %@LOGINFO% %@RMTCONSOLE% TCPVCON -AcceptEula %~2             >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FINDSTR /I %@SEARCH% | FIND /V "UDP" >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from SCHTASKS
+ rem === Updated On: 26 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-SchTasks
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Selected Parameters for the SCHTASKS utility
+ rem %3 = Value to Add to File Extension
+ rem %4 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_SCHTASKS%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "SCHTASKS%~3" %4
+ CALL :VerifyAccess %~1
+
+ IF NOT EXIST %@LOGINFO% SCHTASKS /QUERY /S %@LSERVER% %~2    >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FINDSTR /I /R %@SEARCH% >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from nMAP
+ rem === Updated On: 28 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-nMap
+ rem %1 = Current System/Network for Which Info Will be Obtained
+ rem %2 = Selected Parameters for the nMap utility
+ rem %3 = Value to Add to File Extension
+ rem %4 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_NMAP%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "NMAP%~3" "%~4"
+ IF "!@OBJTYPE!"=="NETWORK" SET "%~1-ARCH=     "
+
+ IF NOT EXIST %@LOGINFO% "%@NMAP%\nMap.exe" %~2 %@LSERVER:__=/% >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FIND /I /V %@SEARCH%      >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Parse Relevant Info from PSLIST
  rem === Updated On: 26 Mar 2024 / 24 Dec 2018
  rem ==========================================================================
 :Get-PSLIST
  rem %1 = Current System for Which Info Will be Obtained
- rem %2 = Selected Parameters for the PSLIST Utility
+ rem %2 = Selected Parameters for the PSLIST utility
  rem %3 = Value to Add to File Extension
  rem %4 = Search Criteria for the Execution Results
 
@@ -1910,6 +2513,59 @@
 
  IF NOT EXIST %@LOGINFO% PSLIST %@PSPARAMS% %~1 %~2           >%@LOGINFO% 2>&1
  IF DEFINED @SEARCH TYPE %@LOGINFO% | FINDSTR /I /R %@SEARCH% >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from NETSH
+ rem === Updated On: 26 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-NetSH
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_NETSH%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "NETSH" %2
+ CALL :VerifyAccess %~1
+ IF DEFINED @ACCESSIBLE CALL :GetRemoteConsole %~1
+
+ (	 FOR %%c IN (GLO CONFIG INT) DO ECHO INT IP   SHOW %%c
+	 FOR %%c IN (ADD INT TEREDO) DO ECHO INT IPv6 SHOW %%c) >"%~1\Admin$\Temp\%@NETSH%"
+
+ IF NOT EXIST %@LOGINFO% %@RMTCONSOLE% NETSH -F %%SystemRoot%%\Temp\%@NETSH% >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FINDSTR /I /R %@SEARCH%                >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from COREINFO
+ rem === Updated On: 26 Mar 2024 / 20 May 2020
+ rem ==========================================================================
+:Get-COREINFO
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_COREINFO%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "COREINFO" "%~2"
+ CALL :VerifyAccess %~1
+ IF DEFINED @ACCESSIBLE CALL :GetRemoteConsole %~1
+
+ IF NOT EXIST %@LOGINFO% %@RMTCONSOLE% COREINFO %@PSPARAMS% >%@LOGINFO% 2>NUL
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FIND /I %@SEARCH%     >%@LOGTEMP% 2>&1
  %@PRINT_IF_DEBUG%
  EXIT /B
 
@@ -1943,6 +2599,54 @@
  ) >%@LOGINFO% 2>&1
 
  IF DEFINED @SEARCH TYPE %@LOGINFO% | FIND /I %@SEARCH% >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from WMIC for Service Control
+ rem === Updated On: 26 Mar 2024 / 24 Dec 2018
+ rem ==========================================================================
+:Get-Services
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_WMIC%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "SERVICES" %2
+ CALL :VerifyAccess %~1
+
+ IF NOT EXIST %@LOGINFO% WMIC /NODE:"%@LSERVER%" SERVICE GET DisplayName^^,State /FORMAT:TABLE >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FIND /I %@SEARCH%                                        >%@LOGTEMP% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Parse Relevant Info from WMIC for Windows Patch List (QFE)
+ rem === Updated On: 26 Mar 2024 / 21 Mar 2024
+ rem ==========================================================================
+:Get-QFE
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Search Criteria for the Execution Results
+
+ rem -- Check for Systems to Exclude
+ FOR %%Z IN (%@SKIP_WMIC%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~Z"=="%~1" (
+	 SET @THIS_SECTION=%~0
+	 ECHO *** !@THIS_SECTION:~5,99! scan skipped for %~1 >>%@LOGFILE% 2>&1
+	 EXIT /B
+ )
+
+ CALL :MakeTempVariables %~1 "QFEINFO" %2
+ CALL :VerifyAccess %~1
+
+ IF NOT EXIST %@LOGINFO% WMIC /NODE:"%@LSERVER%" %@QFE_CMD% >%@LOGINFO% 2>&1
+ IF DEFINED @SEARCH TYPE %@LOGINFO% | FIND /I %@SEARCH%     >%@LOGTEMP% 2>&1
  %@PRINT_IF_DEBUG%
  EXIT /B
 
@@ -2143,6 +2847,14 @@
  SET @LINE021= ECHO FINDFILES --bw -w -m -f "%~1" WHERE
  SET @LINE022= ECHO IF ERRORLEVEL 64 GOTO :WrapThingsUp
 
+ IF /I "%~1"=="NETSH" (
+	 SET @LINE040= rem -- NetSH Script Input
+	 SET @LINE041= SET @REMOTE1="%%~1\Admin$\Temp\%@NETSH%"
+	 SET @LINE042= ^( FOR %%%%c IN ^(GLO CONFIG INT^) DO ECHO INT IP   SHOW %%%%c
+	 SET @LINE043=	 FOR %%%%c IN ^(ADD INT TEREDO^) DO ECHO INT IPv6 SHOW %%%%c ^) ^>%%@REMOTE1%%
+	 SET @LINE044= TYPE %%@REMOTE1%%
+ )
+
  IF /I "%~1"=="NTP1" (
 	 SET @LINE060= rem -- Get Time Source Info
 	 SET @LINE061= FOR %%%%V IN ^(/RTSDOMAIN %%~1^) DO NET TIME %%%%V ^| FIND "\\"
@@ -2203,7 +2915,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Format Numbers with Thousands Separator
- rem === Updated On: 07 Jul 2025
+ rem === Updated On: 07 Jul 2025 / 21 Mar 2024 / 07 Dec 2010
  rem ==========================================================================
 :FormatNumber
  rem %1 = Current Number to be Formatted
@@ -2509,6 +3221,30 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Show Current Memory Usage on Server
+ rem === Updated On: 25 Aug 2025 / 16 Dec 2018 / 05 May 2016
+ rem ==========================================================================
+:MemoryUsage
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Optional Parameter to Generate FULL List
+
+ CALL :DisplaySysInfo %~1
+
+ IF /I "%~2"=="FULL" ( rem -- Add More Detail For Each Process
+	 CALL :Get-PSLIST %~1 "-t" 2
+	 CALL :LogResults %~1 !@LOGINFO! 1
+	 CALL :Get-PSLIST %~1 "-d -m" 3
+	 CALL :LogResults %~1 !@LOGINFO! 2 HIDE -
+ ) ELSE (
+	 CALL :Get-PSLIST %~1 "" 1
+	 CALL :LogResults %~1 !@LOGINFO! 2 "" -
+ )
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Display System Memory (via SYSTEMINFO)
  rem === Updated On: 25 Aug 2025 / 18 Aug 2025 / 07 Jul 2025 / 28 Mar 2024
  rem ==========================================================================
@@ -2532,8 +3268,21 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Display System Memory (via SYSTEMINFO)
+ rem === Updated On: 24 Mar 2016 / 21 Apr 2015
+ rem ==========================================================================
+:ShowMEM-Y
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-SYSTEMINFO %~1 "Memory: "
+ CALL :LogResults %~1 %@LOGTEMP% 2 "" -
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Show Current Time on Server
- rem === Updated On: 25 Aug 2025 / 11 Jan 2022 / 06 Jan 2021
+ rem === Updated On: 25 Aug 2025 / 10 Jan 2022 / 06 Jan 2021
  rem ==========================================================================
 :SystemTime
  rem %1 = Current System for Which Info Will be Obtained
@@ -2554,6 +3303,25 @@
 	 SET @CURRENTTIME=!@CURRENTTIME:?=0!
 	 SET @CURRENTTIME=!@CURRENTTIME:%~1 is=%@CNAME1%!
 	 FOR /F "USEBACKQ TOKENS=2-3 DELIMS=()" %%O IN (%@LOGTEMP%) DO ECHO !@CURRENTTIME!  [%%~O] %%~P	!@ALERTMSG:~0,114!	!@TIMEDIAG!
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show TimeZone Information on Server
+ rem === Updated On: 25 Aug 2025 / 10 Jan 2022 / 21 Apr 2015
+ rem ==========================================================================
+:SystemTimeZone
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ CALL :Get-SYSTEMINFO %~1 "Zone: "
+
+ FOR /F "USEBACKQ TOKENS=2-3 DELIMS=()" %%T IN (%@LOGTEMP%) DO (
+	 ECHO Timezone for %@CNAME1% [%%T] %%U
+	 NET TIME %~1 2>NUL | FIND /I "LOCAL TIME"
  ) >>%@LOGFILE% 2>&1
  %@TRACK_TIME% %~1 STOP
  %@PRINT_IF_DEBUG%
@@ -2616,6 +3384,64 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Display OS Version Information (via PSINFO)
+ rem === Updated On: 21 Apr 2015 / 25 Oct 2010
+ rem ==========================================================================
+:OSVersion-P
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-PSINFO %~1 "Product Version Service Pack"
+ CALL :LogResults %~1 %@LOGTEMP% 2
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display OS Version Information (via SYSTEMINFO)
+ rem === Updated On: 29 Sep 2024 / 23 May 2020 / 25 Dec 2018
+ rem ==========================================================================
+:OSVersion-Y
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-SYSTEMINFO %~1 "\<OS \<BIOS Date \<System.[m,t]"
+ CALL :LogResults %~1 %@LOGTEMP% 2
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display OS Version Information (via WMIC)
+ rem === Updated On: 03 Mar 2016 / 05 Jan 2016
+ rem ==========================================================================
+:OSVersion-W
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @WMIC=WMIC /NODE:"%@CNAME%" OS GET Caption^^,Version /FORMAT:LIST
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 FOR /F "TOKENS=2 DELIMS==" %%O IN ('%@WMIC% ^| FIND "="') DO ECHO %%~O
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display OS and CPU Information (via PSINFO)
+ rem === Updated On: 24 Mar 2016 / 21 Apr 2015
+ rem ==========================================================================
+:ProcessorInfo
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-PSINFO %~1 "Processor Product Version Service Pack"
+ CALL :LogResults %~1 %@LOGTEMP% 2 "" -
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Display OS and CPU Information (via BWCC DATEINFO)
  rem === Updated On: 25 Aug 2025 / 13 Jul 2025 / 16 Jun 2024 / 20 May 2022
  rem ==========================================================================
@@ -2651,6 +3477,19 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Display CPU Core Information (via COREINFO)
+ rem === Updated On: 16 May 2018
+ rem ==========================================================================
+:CPUcoreInfo
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-COREINFO %~1
+ CALL :LogResults %~1 %@LOGINFO% 2 "" -
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Display Machine Serial Number (via BWCC DATEINFO)
  rem === Updated On: 13 Jul 2025 / 09 Feb 2022
  rem ==========================================================================
@@ -2659,6 +3498,118 @@
 
  CALL :DisplaySysInfo %~1
  ECHO %@CNAME2% Serial # !%~1-SERIAL_NUM! >>%@LOGFILE% 2>&1
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Disk Used/Free Space (via SRVINFO)
+ rem === Updated On: 25 Aug 2025 / 21 Mar 2024 / 29 Mar 2021
+ rem ==========================================================================
+:DiskSpace_Summary
+ rem %1 = Current System for Which Info Will be Obtained
+
+ rem -- Print Summary of All Systems with Low Disk Space
+ IF "%~1"=="----" (CALL :SummarizeList @LOWSPACE_LIST "DRIVES WITH LOW DISKSPACE" & EXIT /B)
+
+ rem -- Main Routine
+ CALL :DisplaySysInfo %~1
+ CALL :Get-SRVINFO %~1 "$"
+ SET @FOUND=FALSE
+
+ ( rem -- Write to Log
+	 IF NOT "%@DHEADER%"=="TRUE" (
+		 SET @DHEADER=TRUE
+		 ECHO                                   --- HARDDISK SPACE CONSUMPTION INFO ---
+		 ECHO  SERVER NAME         DRIVE        TOTAL       USED       FREE     %% FREE
+		 ECHO %@DIVIDER-:~-73%
+	 )
+
+	 FOR /F "TOKENS=1-5" %%S IN ('TYPE %@LOGTEMP% ^| FIND /V "\" ^| SORT') DO (
+		 CALL :Check4LowDiskSpace "%%~T" "%%~U" "%%~V"
+		 SET @FOUND=TRUE
+		 SET @CNAME=%1                    & SET @CNAME=!@CNAME:~2,18!
+		 SET @DRIVE=%%S %%T               & SET @DRIVE=!@DRIVE:~0,8!
+		 SET @TDISK=                   %%U& SET @TDISK=!@TDISK:~-10!
+		 SET @FDISK=                   %%V& SET @FDISK=!@FDISK:~-10!
+		 SET @UDISK=                   %%W& SET @UDISK=!@UDISK:~-10!
+		 SET @FPERC=             !@FREE!%%& SET @FPERC=!@FPERC:~-10!
+		 ECHO  !@CNAME! !@DRIVE:$=:! !@TDISK! !@UDISK! !@FDISK! !@FPERC! !@ALARM!
+		 IF /I "!@ALARM!"=="--LOW--" CALL :AddName @LOWSPACE_LIST "%~1/!@DRIVE:~0,1!:"
+	 )
+
+	 IF "!@FOUND!"=="TRUE" ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+ rem -- Calculate Free Disk Space (using CCALC) and Set Appropriate Variables if Below Established %@LOWDISK% Threshold
+:Check4LowDiskSpace
+ rem %1 = Disk Type/Format
+ rem %2 = Total Disk Space
+ rem %3 = Used Disk Space
+
+ SET @FREE=0
+ SET "@ALARM=   "
+
+ IF "%~3"=="" EXIT /B
+ FOR /F %%f IN ('CCALC %~3 / %~2 * 100 /D:2 2^>NUL') DO SET @FREE=%%f
+ IF /I NOT "%~1"=="CDFS" IF /I NOT "%~1"=="UDF" FOR /F %%L IN ('CCALC "!@FREE! <= %@LOWDISK%" 2^>NUL') DO IF "%%~L"=="TRUE" SET @ALARM=--LOW--
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Disk Used/Free Space (via PSINFO)
+ rem === Updated On: 25 Aug 2025 / 26 Mar 2024 / 21 Mar 2024 / 30 Mar 2021
+ rem ==========================================================================
+:DiskSpace
+ rem %1 = Current System for Which Info Will be Obtained
+
+ rem -- Print Summary of All Systems with Low Disk Space
+ IF "%~1"=="----" (CALL :SummarizeList @LOWSPACE_LIST "DRIVES WITH LOW DISKSPACE" & EXIT /B)
+
+ rem -- Main Routine
+ CALL :DisplaySysInfo %~1
+ CALL :Get-PSINFO %~1 "Fixed"
+ SET @THISLOG=%~1\Logs$\Maint\StorageInfo.TXT
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 ECHO Volume Type       Format     Label Name            Disk Size  Disk Free  %%Free
+	 ECHO -------------------------------------------------------------------------------
+	 TYPE %@LOGTEMP%
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+
+:DirUsage
+ SET @LOWSPACE=
+ FOR /F "TOKENS=* DELIMS=" %%D IN ('TYPE %@LOGTEMP% ^| FIND /I "Fixed"') DO CALL :GetFreeSpace %~1 "%%~D"
+ ( rem -- Write to Log
+	 IF "!@LOWSPACE!"=="TRUE" ECHO:
+	 IF EXIST "%@THISLOG%" ECHO See Detailed Storage Usage Log - %@THISLOG%
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+ rem -- Generate Error If Free Space Less Than 10%
+:GetFreeSpace
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Current Drive Stats, Include Drive Letter and Free Space
+ SET @STATS=%~2
+ SET @DRIVE=%@STATS:~4,2%
+ FOR /F "DELIMS=%% " %%I IN ('ECHO %@STATS:~-6%') DO SET @FREE=%%I
+
+ FOR /F %%L IN ('CCALC "!@FREE! >= %@LOWDISK%" 2^>NUL') DO IF "%%~L"=="TRUE" EXIT /B
+	 ECHO *** DISK SPACE ON %~1\%@DRIVE% HAS FALLEN BELOW %@LOWDISK%%% (~%@FREE%%%) ***
+	 ECHO *** DISK SPACE ON %~1\%@DRIVE% HAS FALLEN BELOW %@LOWDISK%%% (~%@FREE%%%) *** >>%@LOGFILE% 2>&1
+	 CALL :AddName @LOWSPACE_LIST "%~1/%@DRIVE%"
+	 SET @LOWSPACE=TRUE
  %@PRINT_IF_DEBUG%
  EXIT /B
 
@@ -2746,6 +3697,54 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Show Zip Archives for Current Month
+ rem === Updated On: 25 Aug 2025 / 02 Jun 2024 / 05 May 2016 / 06 Apr 2015
+ rem ==========================================================================
+:ZipArchives
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Optional Parameter to Generate FULL List
+
+ CALL :DisplaySysInfo %~1
+
+ IF EXIST "%~1\Logs$\ZipFiles" ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 ECHO %@DIVIDER-%
+	 IF /I "%~2"=="FULL" (SET @FILTER=%@MM%/../%@YYYY%) ELSE (SET @FILTER=_.*%@LASTMONTH_EXP%)
+	 DIR /OGN /A-D %~1\Logs$\ZipFiles | FINDSTR /R /I "!@FILTER! zia.*"
+	 ECHO %@DIVIDER-%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display i386 Folder [Directory Totals Only]
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 22 Apr 2011
+ rem ==========================================================================
+:Show_i386
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 IF NOT EXIST "%~1\C$\Storage\i386" (
+		 ECHO The "C:\Storage\i386" folder does not exist on this system.
+	 ) ELSE (
+		 DIR %~1\C$\Storage\i386 | FIND /V "/"
+	 )
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Show Any Memory Dump Files (Crash Diagnostics)
  rem === Updated On: 25 Aug 2025 / 23 Jul 2020 / 22 May 2020
  rem ==========================================================================
@@ -2768,6 +3767,280 @@
 	 ECHO:
  ) >>%@LOGFILE% 2>&1
  %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show Share Info
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 22 Apr 2011
+ rem ==========================================================================
+:ShowShares
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 FOR /F "TOKENS=*" %%I IN ('RMTSHARE %~1') DO ECHO: %%~I
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Get Information About Services via SC
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 24 Mar 2016
+ rem ==========================================================================
+:ServiceInfo
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO! -- RUNNING
+	 FOR /F "TOKENS=1* DELIMS=: " %%Q IN ('SC %~1 QUERY type^= service ^| FIND "DISPLAY_NAME:"') DO ECHO  RUNNING: %%~R
+	 ECHO:
+	 ECHO !@SYSINFO! -- STOPPED
+	 FOR /F "TOKENS=1* DELIMS=: " %%R IN ('SC %~1 QUERY type^= service state^= inactive ^| FIND "DISPLAY_NAME:"') DO ECHO  STOPPED: %%~S
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Get Information About Services via WMIC
+ rem === Updated On: 25 Aug 2025 / 16 Dec 2018 / 24 Mar 2016
+ rem ==========================================================================
+:ServiceInfo-W
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+
+ ECHO --- RUNNING Services on %~1 >>%@LOGFILE% 2>&1
+ CALL :Get-Services %~1 "Running"
+ CALL :LogResults %~1 %@LOGTEMP% 1 HIDE
+
+ ECHO --- STOPPED Services on %~1 >>%@LOGFILE% 2>&1
+ CALL :Get-Services %~1 "Stopped"
+ CALL :LogResults %~1 %@LOGTEMP% 2 HIDE *
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display NIC Information
+ rem === Updated On: 25 Aug 2025 / 21 Apr 2015 / 20 May 2005
+ rem ==========================================================================
+:GetNIC
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-SRVINFO %~1 "Network Card"
+ CALL :LogResults %~1 %@LOGTEMP% 2
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Remote Logon Sessions (via NETSESS)
+ rem === Updated On: 25 Aug 2025 / 19 May 2020
+ rem ==========================================================================
+:ShowRemoteSessions
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+
+ ( rem -- Write to Log
+	 ECHO Checked Status @ !TIME: =0!
+	 NETSESS %~1 -full 2>NUL
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Local Logon Sessions (via LOGONSESSIONS)
+ rem === Updated On: 25 Aug 2025 / 05 Dec 2018 / 16 Mar 2016
+ rem ==========================================================================
+:ShowLogonSessions
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ CALL :GetRemoteConsole %~1
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 %@RMTCONSOLE% LOGONSESSIONS %@PSPARAMS% -p 2>NUL
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Current Network Connections via TCPVCON
+ rem === Updated On: 25 Aug 2025 / 09 Mar 2016 / 21 Apr 2015
+ rem ==========================================================================
+:ShowConnections-T
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Determine if FULL or NORMAL stats Should be displayed
+
+ CALL :DisplaySysInfo %~1
+
+ IF /I "%~2"=="FULL" (
+	 SET @T_HEADING=PROTOCOL  STATUS         LOCAL ADDRESS:PORT                  REMOTE ADDRESS:PORT                 PID     PROCESS NAME
+	 CALL :Get-TCPVIEW %~1 "-acn" "LISTENING ESTABLISHED *"
+ ) ELSE (
+	 SET @T_HEADING=PROTOCOL  STATUS         LOCAL ADDRESS:PORT                  PID     PROCESS NAME
+	 CALL :Get-TCPVIEW %~1 "-acn" "LISTENING"
+ )
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 ECHO:
+	 ECHO !@T_HEADING!
+	 FOR /F "USEBACKQ TOKENS=1-6 DELIMS=," %%N IN (%@LOGTEMP%) DO (
+		 SET @T_PROTO= %%~N %@SPACES%
+		 SET @T_PID=%%~P    %@SPACES%
+		 SET @T_STATE=%%~Q  %@SPACES%
+		 SET @T_LOCAL=%%~R  %@SPACES%& SET @T_LOCAL=!@T_LOCAL::0:=:!
+		 SET @T_REMOTE=%%~S %@SPACES%& SET @T_REMOTE=!@T_REMOTE::0:=:!
+		 IF /I "%~2"=="FULL" (
+			 ECHO !@T_PROTO:~0,9! !@T_STATE:~0,14! !@T_LOCAL:~0,35! !@T_REMOTE:~0,35! !@T_PID:~0,7! %%~O
+		 ) ELSE (
+			 ECHO !@T_PROTO:~0,9! !@T_STATE:~0,14! !@T_LOCAL:~0,35! !@T_PID:~0,7! %%~O
+		 )
+	 )
+	 ECHO %@DIVIDER-%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Current Network Connections via NETSTAT
+ rem === Updated On: 25 Aug 2025 / 09 Mar 2016 / 01 May 2011
+ rem ==========================================================================
+:ShowConnections-N
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Determine if FULL or NORMAL stats Should be displayed
+
+ CALL :DisplaySysInfo %~1
+ CALL :GetRemoteConsole %~1
+ SET @NETSTAT=NETSTAT -ano ^| FIND "LISTENING" & IF /I "%~2"=="FULL" SET @NETSTAT=NETSTAT -ano ^| FINDSTR "LISTENING ESTABLISHED"
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 ECHO:
+	 ECHO   Proto  Local Address          Remote Address         State           PID
+	 %@RMTCONSOLE% %@NETSTAT%
+	 ECHO %@DIVIDER-%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Current ROUTE Table
+ rem === Updated On: 25 Aug 2025 / 16 Mar 2016 / 21 Dec 2014
+ rem ==========================================================================
+:ShowRoute
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ CALL :GetRemoteConsole %~1
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 %@RMTCONSOLE% ROUTE -P PRINT | FIND /I /V "%@CNAME%"
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show IP Address Info via NetShell
+ rem === Updated On: 09 Jun 2016 / 06 Jun 2016
+ rem ==========================================================================
+:GetNetshInfo
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-NetSH %~1
+ CALL :LogResults %~1 %@LOGINFO% 2 "" *
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show IP Address Info via WMIC
+ rem === Updated On: 25 Aug 2025 / 16 Mar 2016 / 05 Jan 2016
+ rem ==========================================================================
+:GetNetworkInfo
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @WMIC=WMIC /NODE:"%@CNAME%" NICCONFIG GET IPAddress^^,DNSDomain^^,DHCPServer^^,DHCPEnabled /FORMAT:LIST
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 FOR /F "TOKENS=2 DELIMS==" %%I IN ('%@WMIC% ^| FIND "="') DO ECHO %%~I
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show IP Address Info (DNS, DHCP, WINS)
+ rem === Updated On: 21 Apr 2015 / 20 May 2005
+ rem ==========================================================================
+:GetIPServers
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-IPCONFIG %~1 "S Server"
+ CALL :LogResults %~1 %@LOGTEMP% 2
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show Full IP Address Info
+ rem === Updated On: 03 Mar 2016 / 21 Apr 2015
+ rem ==========================================================================
+:GetIPConfig
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-IPCONFIG %~1
+ CALL :LogResults %~1 %@LOGINFO% 2 "" *
  %@PRINT_IF_DEBUG%
  EXIT /B
 
@@ -2818,8 +4091,313 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Show Hosts Info
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 24 Mar 2016
+ rem ==========================================================================
+:ShowHosts
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @HOSTS=%~1\ADMIN$\SYSTEM32\DRIVERS\ETC\HOSTS
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 IF EXIST "%@HOSTS%" (
+		 DIR "%@HOSTS%" | FIND /I "HOSTS"
+		 TYPE "%@HOSTS%" | FINDSTR /V /B "#"
+		 ECHO %@DIVIDER-%
+	 ) ELSE (
+		 ECHO *** There is no HOSTS file ***
+	 )
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show LMHosts Info
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 24 Mar 2016
+ rem ==========================================================================
+:ShowLMHosts
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @LMHOSTS=%~1\ADMIN$\SYSTEM32\DRIVERS\ETC\LMHOSTS
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 IF EXIST "%@LMHOSTS%" (
+		 DIR "%@LMHOSTS%" | FIND /I "LMHOSTS"
+		 TYPE "%@LMHOSTS%" | FINDSTR /V /B "#"
+		 ECHO %@DIVIDER-%
+	 ) ELSE (
+		 ECHO *** There is no LMHOSTS file ***
+	 )
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Verify LMHosts Synchronization with Source
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 22 Apr 2011
+ rem ==========================================================================
+:VerifyLMHosts
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @MACHINE=%~1
+ SET @LMHOSTS=%~1\ADMIN$\SYSTEM32\DRIVERS\ETC\LMHOSTS
+ FOR /F "TOKENS=*" %%Z IN ('FC "%@LMHOSTS%" "%@LMH-SOURCE%"') DO SET @COMPARE=%%~Z
+ FOR %%S IN (%@LMH-SPECIAL%) DO IF /I "%@MACHINE:\=%"=="%%~S" SET @COMPARE=%@NODIFF%
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 DIR "%@LMHOSTS%" | FIND /I "LMHOSTS"
+	 IF /I NOT "%@COMPARE%"=="%@NODIFF%" ECHO *** LMHOSTS NOT UP-TO-DATE ***
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Scheduled Events Summary (via SCHTASKS)
+ rem === Updated On: 25 Aug 2025 / 03 Mar 2016 / 26 Mar 2015
+ rem ==========================================================================
+:GetSchedule
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Boolean Parameter for FULL or SUMMARY List
+
+ CALL :DisplaySysInfo %~1
+ SET @COUNT=0
+ SET @SCHLIST=2
+ SET @SCHTASKS=/FO LIST /V& IF "%~2"=="" (SET @SCHLIST=1& SET @SCHTASKS=/FO TABLE)
+ CALL :Get-SchTasks %~1 "%@SCHTASKS%" "%@SCHLIST%" "Folder:"
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 ECHO:
+	 ECHO List of All Scheduled Task Folders
+	 ECHO %@DIVIDER-%
+	 TYPE %@LOGTEMP%
+	 ECHO:
+	 ECHO:
+	 ECHO List of All Scheduled Tasks [non-Microsoft folders]
+	 ECHO %@DIVIDER-%
+	 FOR /F "USEBACKQ TOKENS=*" %%S IN (%@LOGINFO%) DO (
+		 SET @PRINTOUT=ECHO %%~S
+		 IF /I "!@PRINTOUT:~5,7!"=="Folder:" (
+			 IF /I "!@PRINTOUT:~14,9!"=="Microsoft" (SET @PRINT=FALSE) ELSE (SET @PRINT=TRUE& ECHO:)
+			 IF NOT "%~2"=="" SET @PRINTOUT=
+		 )
+
+		 IF /I "!@PRINT!"=="TRUE" (
+			 IF /I "!@PRINTOUT:~5,9!"=="HostName:" (
+				 SET /A @COUNT+=1
+				 IF !@COUNT! GTR 1 ECHO:
+				 ECHO %~1: SCHEDULED JOB #!@COUNT!
+			 ) ELSE (
+				 !@PRINTOUT!
+			 )
+		 )
+	 )
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Scheduled Events Summary (via AT)
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 22 Apr 2011
+ rem ==========================================================================
+:GetSchedule_AT
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+
+ ( rem -- Write to Log
+	 NET TIME %~1 | FIND /I "CURRENT TIME"
+	 AT %~1
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display PATH Info
+ rem === Updated On: 25 Aug 2025 / 05 May 2016 / 22 Apr 2011
+ rem ==========================================================================
+:GetPATH
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ CALL :GetRemoteConsole %~1
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 %@RMTCONSOLE% CMD /C PATH | FIND /I "PATH="
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Members of Local Admin Acct
+ rem === Updated On: 25 Aug 2025 / 03 Mar 2016 / 22 Apr 2011
+ rem ==========================================================================
+:AdminInfo
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 LOCAL "Administrators" %~1
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Failure-Related Logon Info for Previous 36 hours
+ rem === Updated On: 29 Sep 2025 / 25 Aug 2025 / 19 Nov 2011 / 08 May 2011
+ rem ==========================================================================
+:FailedLogons_LOG
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Optional Parameter to Generate FULL List
+
+ CALL :DisplaySysInfo %~1
+ SET @FAILURELOGS=%~1\Logs$\EventLogs\EventLog-Failure.TXT
+
+ ( rem -- Write to Log
+	 IF NOT EXIST "%@FAILURELOGS%" (
+		 ECHO %@SYSINFO-CON% -- No Logfile Found...
+		 ECHO:
+	 ) ELSE (
+		 FOR %%S IN ("%@FAILURELOGS%") DO SET /A @LOGSIZE=%%~zS
+		 ECHO %@SYSINFO-CON% -- This Logfile is Approximately !@LOGSIZE! bytes in size...
+		 IF "%~2"=="FULL" (
+			 TYPE "%@FAILURELOGS%"
+		 ) ELSE (
+			 READABLE "%@FAILURELOGS%" --EN 3
+			 READABLE "%@FAILURELOGS%" --ST -10 -F ","
+			 READABLE "%@FAILURELOGS%" --ST -3
+		 )
+		 ECHO:
+	 )
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Capture Failure-Related Logon Info for Previous 36 hours
+ rem === Updated On: 25 Aug 2025 / 19 Feb 2016 / 08 May 2011
+ rem ==========================================================================
+:FailedLogons
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @FAILURELOGS=%~1\Logs$\EventLogs\EventLog-Failure.TXT
+
+ ( rem -- Write to Log
+	 IF EXIST "%@FAILURELOGS%" (
+		 TYPE "%@FAILURELOGS%"
+	 ) ELSE (
+		 ECHO %@SYSINFO-CON% -- No Logfile Found...
+		 FOR /F "TOKENS=5* DELIMS=," %%S IN ('PSLOGLIST -AcceptEula %~1 -H 36 -S SECURITY ^| FINDSTR "failed failure" ^| FIND /I /V "Failure Code:  0x0"') DO ECHO %%~S %%~T
+		 ECHO %@DIVIDER*%
+	 )
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Generate List of Current Firewall Rules
+ rem === Updated On: 25 Aug 2025 / 06 Jun 2016 / 19 Feb 2016
+ rem ==========================================================================
+:SaveFirewallRules
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ CALL :GetRemoteConsole %~1
+ SET @FW_RULES=%~1\Logs$\WinFW\WinFW_Rules.TXT
+
+ ( rem -- Write to Log
+	 IF EXIST "%@FW_RULES%" (
+		 TYPE "%@FW_RULES%"
+	 ) ELSE (
+		 ECHO %@SYSINFO-CON% -- No Logfile Found...
+		 %@RMTCONSOLE% NETSH ADVFIREWALL FIREWALL SHOW RULE NAME=ALL
+		 ECHO %@DIVIDER*%
+	 )
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show Audit Policy Settings
+ rem === Updated On: 25 Aug 2025 / 19 Jan 2022 / 11 Jan 2022 / 19 May 2020
+ rem ==========================================================================
+:GetAuditSettings
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ CALL :GetRemoteConsole %~1
+ FOR %%a IN (%@SCRIPTS%\Utils;%@SCRIPTS%\Utils\Misc) DO IF EXIST "%%~a\AUDITPOL.EXE" SET @AUDITPOL="%%~a\AUDITPOL.EXE"
+
+ ( rem -- Write to Log
+	 ECHO !@SYSINFO!
+	 ECHO %@DIVIDER-%
+	 IF !%~1-OSMAJ! GEQ 6 (
+		 SET @READABLE_PARAMS=%@FORMAT_NEW_AUDITPOL%
+		 %@RMTCONSOLE% "%SystemRoot%\System32\AUDITPOL" /GET /CATEGORY:*
+	 ) ELSE (
+		 SET @READABLE_PARAMS=%@FORMAT_OLD_AUDITPOL%
+		 %@AUDITPOL% %~1
+	 )
+ ) >%@TEMPLOG% 2>&1
+
+ rem -- Make Report Presentable
+ READABLE %@TEMPLOG% !@READABLE_PARAMS! >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Show GetPrimeNumbers Benchmark Report
- rem === Updated On: 30 Sep 2025 / 25 Aug 2025 / 24 Jan 2022 / 12 Feb 2021
+ rem === Updated On: 29 Sep 2025 / 25 Aug 2025 / 24 Jan 2022 / 12 Feb 2021
  rem ==========================================================================
 :CheckBenchmark_SUMMARY
  rem %1 = Current System for Which Info Will be Obtained
@@ -2861,8 +4439,58 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Show CheckIntegrity Overview Report
+ rem === Updated On: 29 Sep 2025 / 25 Aug 2025 / 02 Feb 2025 / 31 Jul 2024
+ rem ==========================================================================
+:CheckIntegrity_SUMMARY
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @INTEGRITY=%~1\Logs$\Audit\CheckIntegrity.RECORDING.TXT
+
+ IF NOT EXIST "%@INTEGRITY%" EXIT /B
+	 FOR /F "TOKENS=3*" %%y IN ('READABLE "%@INTEGRITY%" --ST -1') DO SET @THE_LINE=%%z
+	 FOR /F "TOKENS=6 DELIMS=|" %%a IN ('FindToken "!@THE_LINE!" "END: " 14') DO FOR %%d IN (%%a) DO SET @THE_DATE=%%d
+	 FOR /F "TOKENS=2 DELIMS=|" %%a IN ('FindToken "!@THE_LINE!" " // DURATION: "') DO (
+		CALL SET /A #1ST=%%a - 1
+		CALL SET /A #2ND=%%a
+	 )
+	 FOR /F %%z IN ('DATEINFO -B "!@THE_DATE!" -Q 2^>NUL') DO SET @DAYS_OLD=%%~z
+	 CALL :PadLeft @DO "!@DAYS_OLD!" "." 3
+	 ECHO !@SYSINFO-CON! !@THE_LINE:~0,%#1ST%! // DAYS_OLD.!@DO! !@THE_LINE:~%#2ND%! >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Show CheckIntegrity Summary Report
+ rem === Updated On: 25 Aug 2025 / 30 Apr 2015 / 15 Jan 2015
+ rem ==========================================================================
+:CheckIntegrity_FULL
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :DisplaySysInfo %~1
+ SET @INTEGRITY=%~1\Logs$\Audit\CheckIntegrity.REPORT.TXT
+
+ ( rem -- Write to Log
+	 IF EXIST "%@INTEGRITY%" (
+		 ECHO %@SYSINFO-CON%
+		 TYPE "%@INTEGRITY%"
+	 ) ELSE (
+		 ECHO %@SYSINFO-CON% -- No Logfile Found...
+	 )
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Check Job History Logs
- rem === Updated On: 29 Sep 2025 / 25 Aug 2025 / 07 Oct 2019 / 12 Jun 2018
+ rem === Updated On: 29 Sep 2025 / 25 Aug 2025 / 07 Oct 2019 / 19 May 2018
  rem ==========================================================================
 :CheckJobHistory
  rem %1 = Current System for Which Info Will be Obtained
@@ -2881,6 +4509,227 @@
 	 ECHO:
  ) >>%@LOGFILE% 2>&1
  %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Full OS Information (via PSINFO)
+ rem === Updated On: 21 Apr 2015 / 01 Mar 2006
+ rem ==========================================================================
+:FullOSInfo-P
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-PSINFO %~1 ":"
+ CALL :LogResults %~1 %@LOGTEMP% 2
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Full OS Information using SRVINFO
+ rem === Updated On: 03 Mar 2016 / 21 Apr 2015
+ rem ==========================================================================
+:FullOSInfo-S
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-SRVINFO %~1
+ CALL :LogResults %~1 %@LOGINFO% 2 "" *
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Display Full OS Information (via SYSTEMINFO)
+ rem === Updated On: 03 Mar 2016 / 21 Apr 2015
+ rem ==========================================================================
+:FullOSInfo-Y
+ rem %1 = Current System for Which Info Will be Obtained
+
+ CALL :Get-SYSTEMINFO %~1
+ CALL :LogResults %~1 %@LOGINFO% 2 "" *
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Determine Windows Patch Status via WMIC
+ rem === Updated On: 25 Aug 2025 / 18 Aug 2025 / 05 Nov 2024 / 29 Sep 2024
+ rem ==========================================================================
+:GetPatchStatus
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Optional Parameter to Generate FULL List
+
+ rem -- Print Summary of Most Recent Patches Installed
+ IF "%~1"=="----" (
+	 ( ECHO:& ECHO %@DIVIDER~%& FOR /F "TOKENS=1* DELIMS==" %%V IN ('SET "@PATCH-STATUS-" 2^>NUL') DO ECHO %%W ) >>%@LOGFILE% 2>&1
+	 CALL :SummarizeList @PATCH_LIST "MISSING PATCHES"
+	 CALL :SummarizeList @REBOOT_LIST "SYSTEMS TO REBOOT"
+	 EXIT /B
+ )
+
+ rem -- Main Routine
+ CALL :DisplaySysInfo %~1
+ IF /I NOT "%~2"=="FULL" GOTO :ShowPatchInfo
+
+ ( rem -- Write to Log
+	 CALL :Get-SYSTEMINFO %~1 "\<BIOS \<OS Date: Time: \<System.[m,t]"
+	 ECHO !@SYSINFO!
+	 ECHO %@DIVIDER-% & IF EXIST !@NOREACH! (GOTO :ShowPatchInfo)
+	 ECHO OS Name w/Build Info:      !%~1-OSEDITION!  [!%~1-LATEST!]
+	 ECHO Serial Number:             !%~1-SERIAL_NUM!
+	 TYPE !@LOGTEMP! | FINDSTR /I /R    "\<System.[m,t]"
+	 TYPE !@LOGTEMP! | FIND    /I       "BIOS"
+	 TYPE !@LOGTEMP! | FINDSTR /I /R /V "\<BIOS \<System.[m,t]"
+	 CALL :Get-PSINFO %~1 "\<Uptime:"
+	 TYPE !@LOGTEMP!
+ ) >>%@LOGFILE% 2>&1
+
+ rem -- Display Relevant Patch/QFE Info
+:ShowPatchInfo
+ SET @LENGTH=
+ SET @LASTPATCH=
+ FOR %%V IN (N_D QFE_DATE QFE_DATE2 LASTPATCH2) DO SET @%%V=----------
+
+ CALL :Get-QFE %~1
+ FOR %%F IN (LIST HEAD TEMP) DO SET @QFE_%%F="%@TMPPATH%\QFE-%%F.TXT"
+ TYPE %@LOGINFO% | FIND "InstalledOn" >%@QFE_HEAD%
+
+:GetLineLength
+ FOR /F "TOKENS=* DELIMS=·" %%L IN ('TYPE %@LOGINFO%') DO IF NOT DEFINED @LENGTH (
+	 SET @QFE_LINE=%%L
+	 CALL :GetLength
+ )
+
+:ProcessEachLine
+ ( rem -- Write to Log
+	 FOR /F "SKIP=1 TOKENS=* DELIMS=·" %%L IN ('TYPE %@LOGINFO%') DO (
+		 SET @QFE_LINE=%%L
+		 SET @QFE_INFO=!@QFE_LINE:~0,%@SHORT%!
+		 SET @OLD_DATE=!@QFE_LINE:~%@SHORT%,11!
+		 FOR /F %%c IN ('CCALC ^(!@OLD_DATE! + 0^) --ZERO 2^>NUL') DO IF "%%~c"=="0" SET @OLD_DATE=12/31/1999
+		 FOR /F "TOKENS=1-2" %%d IN ('DATEINFO -s "!@OLD_DATE!" -f "yyyy-mm-dd mm/dd/yyyy" -q 2^>NUL') DO (
+			 SET @QFE_DATE=%%d
+			 SET @QFE_DATE2=%%e
+		 )
+		 IF /I "%~2"=="FULL" ECHO !@QFE_INFO! !@QFE_DATE!
+		 IF NOT DEFINED @LASTPATCH (
+			 SET @LASTPATCH=!@QFE_DATE!
+			 SET @LASTPATCH2=!@QFE_DATE2!
+		 ) ELSE (
+			 IF !@QFE_DATE! GEQ !@LASTPATCH! (
+				 SET @LASTPATCH=!@QFE_DATE!
+				 SET @LASTPATCH2=!@QFE_DATE2!
+			 )
+		 )
+	 )
+ ) >!@QFE_TEMP!
+
+ rem -- Check Age of Most Recent Patches
+ SET @STATUS_MSG=& IF NOT "!@LASTPATCH2!"=="!@N_D!" IF /I NOT "!%~1-LATEST!"=="CURRENT" (
+	 IF "!@LASTPATCH!" LSS "!%~1-LATEST!" (SET #MSG=VARIOUS PATCHES) ELSE (SET #MSG=CUMULATIVE UPDATE)
+	 SET @STATUS_MSG=*** MISSING !#MSG! FROM: !%~1-LATEST! ***
+	 CALL :AddName @PATCH_LIST %~1
+ )
+ SET @PATCH-STATUS-%1=--- %@CNAME2% MOST RECENT PATCH INSTALLED ON !@LASTPATCH2!  !@STATUS_MSG!
+ IF /I NOT "%~2"=="FULL" EXIT /B
+
+ ( rem -- Write to Log
+	 SORT /R /+%@SHORT% !@QFE_TEMP! /O !@QFE_LIST!
+	 MAKESTRING - %@DIVLEN%
+	 TYPE !@QFE_HEAD!
+	 MAKESTRING - %@DIVLEN%
+	 TYPE !@QFE_LIST!
+	 MAKESTRING * %@DIVLEN%
+	 ECHO !@PATCH-STATUS-%1!
+	 MAKESTRING * %@DIVLEN%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+:GetLength
+ FOR /L %%C IN (199,-1,1) DO IF NOT "!@QFE_LINE:~%%C,1!"=="" IF NOT DEFINED @LENGTH SET /A @LENGTH=%%C - 2
+ FOR /F %%C IN ('CCALC !@LENGTH! - 11 2^>NUL') DO SET @SHORT=%%C
+ FOR /F %%C IN ('CCALC !@LENGTH! + 3  2^>NUL') DO SET @DIVLEN=%%C
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Determine Open Network Server Ports via nMap
+ rem === Updated On: 04 Feb 2026 / 05 Dec 2018 / 03 Mar 2016
+ rem ==========================================================================
+:GetNetworkMap
+ rem %1 = Current System for Which Info Will be Obtained
+ rem %2 = Optional Parameter to Generate FULL List
+
+ CALL :DisplaySysInfo %~1
+ SET @PROBE=TRUE& FOR %%S IN (%@SKIP_NMAP%) DO FOR %%U IN ("" "\\") DO IF /I "%%~U%%~S"=="%~1" SET @PROBE=FALSE
+
+ IF /I "%@PROBE%"=="FALSE" ( rem -- If you have to skip the nMAP probe
+	 ECHO *** nMap probe skipped for !@CNAME! >>%@LOGFILE% 2>&1
+ ) ELSE (
+	 IF /I "%~2"=="FULL" ( rem -- Provide a more detailed scan
+		 CALL :Get-nMAP %~1 "-A -v -Pn --top-ports 32 --host-timeout 180s --version-intensity 8" 2
+		 CALL :LogResults %~1 !@LOGINFO! 2 "" -
+	 ) ELSE (
+		 CALL :Get-nMAP %~1 "-v -Pn --host-timeout 60s" 1
+		 CALL :LogResults %~1 !@LOGTEMP! 2 "" -
+	 )
+ )
+ %@TRACK_TIME% %~1 STOP
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Scan One Segment to Identify Live Systems
+ rem === Updated On: 18 Aug 2025 / 24 Nov 2020 / 05 Dec 2018
+ rem ==========================================================================
+:ScanSegment
+ rem %1 = Current Network Segment/Mask For Which Info Will be Obtained
+ rem %2 = Optional Parameter to Generate FULL List
+
+ SET @READABLE_OPTIONS=--SB="Nmap scan report for;Scanning" --LB="Read data files from:;Nmap done:" --LA="Scanning"
+
+ ECHO --- %~1
+ IF EXIST "%@NMAP%\nMap.exe" (
+	 CALL :Get-nMAP %~1 "-v --host-timeout 90s --system-dns -sn" 3
+	 IF /I "%~2"=="FULL" ( rem -- Provide a more detailed scan
+		 READABLE !@LOGINFO! -O=!@LOGTEMP! !@READABLE_OPTIONS! --SK="ARP;Parallel DNS;Uninitialized"
+	 ) ELSE (
+		 READABLE !@LOGINFO! -O=!@LOGTEMP! !@READABLE_OPTIONS! --SK="[host down;ARP;Parallel DNS;Uninitialized"
+	 )
+	 CALL :LogResults %~1 !@LOGTEMP! 2 "" -
+ ) ELSE (
+	 ECHO *** nMap probe skipped for %~1 network segment >>%@LOGFILE% 2>&1
+ )
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
+ rem === SUBROUTINE: Scan One Segment to Identify SSL Cyphers Available on Hosts
+ rem === Updated On: 07 Apr 2024 / 16 Oct 2023
+ rem ==========================================================================
+:ScanSegmentSSL
+ rem %1 = Current Network Segment/Mask For Which Info Will be Obtained
+ rem %2 = Optional Parameter to Generate FULL List
+
+ CALL :DisplaySysInfo %~1
+ ( rem -- Write to Log
+	 ECHO %@SYSINFO-TIME%
+	 IF EXIST "%@NMAP%\nMap.exe" (
+		 "%@NMAP%\nMap.exe" --script ssl-enum-ciphers -p 443 %~1
+	 ) ELSE (
+		 ECHO *** nMap probe skipped for %~1 network segment
+	 )
+	 ECHO %@DIVIDER*%
+	 ECHO:
+	 ECHO:
+ ) >>%@LOGFILE% 2>&1
  %@PRINT_IF_DEBUG%
  EXIT /B
 
@@ -3052,6 +4901,52 @@
 
 
  rem ==========================================================================
+ rem === SUBROUTINE: Email Partial Report
+ rem === Updated On: 02 Sep 2025 / 06 Oct 2019
+ rem ==========================================================================
+:MailPartialReport
+ rem %1 = {No Parameters Required}
+
+ CALL :Heading GENERATING PARTIAL EMAIL REPORT
+ COPY %@LOGFILE% %@PARTIAL% /Y
+ COPY %@SUMMARY% %@TEMPLOG% /Y
+ PUSHD "%@LOGPATH%"
+ ZIP -9 -v -T -j  %@TINYZIP% !@PARTIAL!
+ POPD
+ FILEHASH --%@LOG_HASH% -g %@CHECKSUM% -d "%@ZIPPATH%" "*%ZIPSTAMP%*"
+
+ rem -- Generate Preview Info
+ ( rem -- Write to Log
+	 ECHO:
+	 ECHO PARTIAL REPORT.  Full Report Will Eventually Be Available Here:
+	 ECHO       \\%COMPUTERNAME%\LOGS$\%@LOGNAME%\%@LOGNAME%.TXT
+	 ECHO       \\%COMPUTERNAME%\LOGS$\%@LOGNAME%\%@LOGNAME%.ERRORS.TXT
+	 ECHO:
+	 DIR "%@PARTIAL%" | FIND /I "Partial"
+	 ECHO %@DIVIDER-%
+	 ECHO:
+	 TYPE %@LOGFILE% | FIND "\--- [#"
+	 DATEINFO -t !@SCRIPT_BEG#! -e "days hours mins secs.ms" -o "\*\\--- Partial Assessment Time: \v\n\*\n * = Jobs Using Concurrency Routines\n" 2>NUL
+ ) >>%@TEMPLOG% 2>&1
+
+ IF /I "%@NOMAIL%"=="FALSE" (
+	 IF DEFINED @RCPT-TO (
+		 ECHO Partial Logs to: %@RCPT-TO:-to =%
+		 BLAT -install %@MAILSERVER% %@MAILSENDER% 2 %@MAILPORT%
+		 ECHO:
+		 BLAT %@TEMPLOG% %@RCPT-TO% -s "%@JOBINFO_P%" -attach %@TINYZIP%,%@CHECKSUM%
+		 CALL :ForwardToSyslog "6" Mailed %@JOBINFO_P% -- %@TINYZIP%
+		 ECHO %@DIVIDER~%
+		 ECHO:
+	 )
+ ) >>%@LOGFILE% 2>&1
+
+ IF EXIST %@TINYZIP% DEL %@TINYZIP% >NUL
+ %@PRINT_IF_DEBUG%
+ EXIT /B
+
+
+ rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
  rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
  rem ==========================================================================
@@ -3076,10 +4971,10 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Display Syntax Help if Required/Requested
- rem === Updated On: 25 Aug 2025 / 09 Jul 2025 / 11 Sep 2024 / 27 Dec 2020
+ rem === Updated On: 04 Feb 2026 / 25 Aug 2025 / 09 Jul 2025 / 11 Sep 2024
  rem ==========================================================================
 :HelpMessage
- ECHO Generates a daily report of system uptime for multiple systems
+ ECHO Generates a daily operations log of system/network configuration across multiple systems
  ECHO:
  ECHO ----------
  ECHO YOU TYPED:  %0 %*
@@ -3106,6 +5001,7 @@
  ECHO       /LC .... Use Limited Monitoring Configuration List (for testing)
  ECHO       /L  .... Use Pre-Existing Computer List; Don't Enumerate Domain/Workgroup  %@DEFAULT%
  ECHO       /CL .... Specify Name of Server List to Use  (overrides normal and test list)
+ ECHO       /CN .... Specify Name of Network List to Use (overrides normal and test list)
  ECHO       /CC .... Specify Name of Config List to Use  (overrides normal and test list)
  ECHO       /G  .... Generate Dynamic Domain/Workgroup List with Servers Only
  ECHO       /GW .... Generate Dynamic Domain/Workgroup List with Servers and Workstations
@@ -3114,6 +5010,8 @@
  ECHO       /IM- ... Disable Individual Job Duration Timing per System
  ECHO       /UPL ... Use Legacy Microsoft Uptime.exe from Resource Kit
  ECHO       /UP2 ... Use Newer UPTIME2.EXE for gathering system uptime  %@DEFAULT%
+ ECHO       /NS .... Disable nMAP Port Scans
+ ECHO       /YS .... Enable nMAP Port Scans
  ECHO       /A+ .... Show Active Directory Domain Info  %@DEFAULT%
  ECHO       /A- .... Do Not Show Active Directory Domain Info
  ECHO       /P+ .... Enable Parallelism (Concurrency) for Long Jobs  %@DEFAULT%
@@ -3122,7 +5020,7 @@
  ECHO       /R+ .... Show Concurrency Diagnostics During Execution
  ECHO       /R- .... Hide Concurrency Diagnostics During Execution  %@DEFAULT%
  ECHO       /D  .... Enable Diagnostics Mode  (also --DIAG)
- ECHO       /QA .... Enable QA Testing Mode (includes /D /T /HC /Q /NP /A-)  (also --QATEST)
+ ECHO       /QA .... Enable QA Testing Mode (includes /D /T /HC /Q /NS /A-)  (also --QATEST)
  ECHO:
 
  IF ERRORLEVEL 8 IF NOT ERRORLEVEL 16 (
@@ -3131,7 +5029,7 @@
 	 ECHO ----------------
 	 ECHO  %~n0
 	 ECHO  %~n0 /S
-	 ECHO  %~n0 /G /HC
+	 ECHO  %~n0 /G /HC /NS
 	 ECHO  %~n0 /CL:"D:\MyOwnList.TXT"
 	 ECHO  %~n0 /M
 	 ECHO  %~n0 /Q /T
@@ -3151,4 +5049,4 @@
 	 ECHO  * Using the /QA option will supersede all other related options.
  )
  CALL :ShowStatus "FINISHED"
-           
+     
