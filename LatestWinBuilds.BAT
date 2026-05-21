@@ -6,7 +6,7 @@
  rem Created On: 15 Jun 2024
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 22 Mar 2026 / 13 Jan 2026 / 01 Jan 2026 / 29-30 Oct 2025
+ rem Updated On: 20 May 2026 / 22 Mar 2026 / 13 Jan 2026 / 01 Jan 2026 / 29-30 Oct 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -66,6 +66,8 @@
  :::
  :::  (Jan 2026) v3.2 -- Update Syslog logging routine for script metrics;
  :::
+ :::  (May 2026) v3.3 -- Adjust configuration to support Server 2025 build info nuances;
+ :::
  :::
  :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
@@ -91,7 +93,7 @@
  rem === Updated On: 29-30 Oct 2025 / 21 Oct 2025 / 16 Oct 2025 / 29 Sep 2025 / 04 Oct 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.2.0.321
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v3.3.0.330
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc -c "H HELP ?" -x "?? H2" -s %*
@@ -541,7 +543,7 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Get Build Date info for Modern Windows (Win10/2016+)
- rem === Updated On: 29-30 Oct 2025 / 18 Jul 2024 / 15-17 Jun 2024
+ rem === Updated On: 20 May 2026 / 29-30 Oct 2025 / 18 Jul 2024 / 15-17 Jun 2024
  rem ==========================================================================
 :GetBuild-n-Date
  rem %1 = Appropriate URL
@@ -560,7 +562,7 @@
 
  rem -- Process Build Info
  SET /A @COUNT_MODERN+=1
- FOR /F "TOKENS=3,5 DELIMS=<>()&" %%U IN ('READABLE "%~2" -a -e -f " (OS Build" -r "%@REPLACEMENT%" 2^>NUL') DO (
+ FOR /F "TOKENS=3,5 DELIMS=<>()&" %%U IN ('READABLE "%~2" -a -e -f " (OS Build;(OS Build " -r "%@REPLACEMENT%" 2^>NUL') DO (
 	 SET @V1=%%~U& SET @V1=!@V1:"=!
 	 SET @V2=%%~V& SET @V2=!@V2:"=!
 	 SET @ORIGINAL_LINE=!@V1! !@V2!
@@ -925,4 +927,4 @@
 	 ECHO  * Parameters surrounded by [] are optional.
  )
  CALL :ShowStatus "FINISHED"
-  
+                                                                   
