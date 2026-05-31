@@ -6,7 +6,7 @@
  rem Created On: 06 Oct 2002
  rem         By: Andrew S. Baker
  rem
- rem Updated On: 29 Sep 2025 / 14 Aug 2025 / 02 Jun 2025 / 10 May 2024
+ rem Updated On: 28 May 2026 / 29 Sep 2025 / 14 Aug 2025 / 02 Jun 2025
  rem         By: Andrew S. Baker
  rem
 
@@ -76,10 +76,11 @@
  :::  (Jun 2025) v4.3 -- Remove any quotes from XCOPY parameters;
  :::
  :::
- :::  SCRIPTING SYNTAX RESOURCES:
+ :::  WINDOWS SHELL SCRIPTING RESOURCES:
  :::  -------------------------------------------------------------------------
- :::  https://ss64.com/ .......... CMD and Powershell syntax
- :::  https://www.dostips.com/ ... Windows Shell Scripting Tips
+ :::  CMD and Powershell syntax ...... https://ss64.com/
+ :::  Windows Shell Scripting Tips ... https://www.dostips.com/
+ :::  Batch Script Linter ............ https://github.com/tboy1337/Blinter/
  :::  -------------------------------------------------------------------------
 
 
@@ -99,7 +100,7 @@
  rem === Updated On: 29 Sep 2025 / 10 May 2024 / 02 May 2024 / 04 Apr 2024
  rem ==========================================================================
 :Variables
- SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v4.4.0.1240
+ SETLOCAL ENABLEDELAYEDEXPANSION & CALL :ShowStatus "STARTED" v4.4.0.1240 a
 
  rem -- Display Syntax Help if Required/Requested
  CHECKPARAMS --rc --mp=2 -c "H HELP ?" -x "?? H2" -s %*
@@ -312,12 +313,13 @@
 
  rem ==========================================================================
  rem === SUBROUTINE: Set/Display Script Version and Execution Status
- rem === Updated On: 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
+ rem === Updated On: 28 May 2026 / 22 Sep 2025 / 16 Oct 2023 / 24 Dec 2019
  rem ==========================================================================
 :ShowStatus
  rem %1 = Run Status of Script
  rem %2 = Current Application Version
 
+ IF NOT DEFINED @CUSTOM_TITLE SET @CUSTOM_TITLE=Command Prompt
  IF NOT DEFINED @DATEFMT SET @DATEFMT=-F "mm/dd/yyyy hh:nn:ss.zzz"
  SET @SCRIPTSTATUS=%~1& IF "%~1"=="" SET @SCRIPTSTATUS=RUNNING
  IF NOT "%~2"=="" (SET @VER=%~nx0 %~2&     SET @VERSION=%~2)
@@ -380,4 +382,4 @@
 	 ECHO    way that the FOR command processes the * character.
  )
  CALL :ShowStatus "FINISHED"
-                                          
+                                                                                  
