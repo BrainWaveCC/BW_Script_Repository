@@ -1,11 +1,11 @@
-;Name of Archive Job;  Variable Name;         Default Value of Variable (Delimiter = ;)
+;Name of Archive Job;  Variable Name;         Default Value of Variable (Delimiter = ;)		[Updated On: 2025-12-21]
 -----------------------------------------------------------------------------------------
 &;                     @SOURCEDEST;     
-&;                     @EXCLUDE;              -x *\.git *Zips\* *ZipFiles\* *.ZIP *\zia* *.RAR *.LOG *.LOG_* *.LOG.* *.TMP *(Old*
+&;                     @EXCLUDE;              -x *\.git *Zips\* *ZipFiles\* *.ZIP *\zia* *.RAR *.GZ *.CAB *.LOG *.LOG_* *.LOG.* *.TMP *(Old*
 &;                     @USE_ROBOCOPY;         TRUE
 &;                     @SORT_LIST;            TRUE
-&;                     @THISHASH;             XXHASH64
-&;                     @FALLBACK_HASH;        MD5
+&;                     @THISHASH;             XX64
+&;                     @FALLBACK_HASH;        MH3
 &;                     @HIDE_BASE_PATH;       TRUE
 &;                     @HIDE_FULL_PATH;       FALSE
 &;                     @NOSCHED;              FALSE
@@ -65,6 +65,7 @@ ScriptRepository;      @DEST;                 %@BACKUPS%\Scripts\
 
 ScriptRepository;      @SOURCE1a;             D:\Scripts
 ScriptRepository;      @SOURCE1b;             E:\Scripts
+ScriptRepository;      @SOURCE1c;             F:\Scripts
 ScriptRepository;      @DEST1;                %@DEST%
 
 ScriptRepository;      @SOURCE2a;             %@SCRIPTS_SOURCE1%
@@ -86,7 +87,7 @@ ScriptRepository;      @KEEP_TIMED;           10
 ScriptRepository;      @MAKE_MONTHLY;         TRUE
 ScriptRepository;      @KEEP_MONTHLY;         4
 ScriptRepository;      @MAKE_YEARLY;          TRUE
-ScriptRepository;      @KEEP_YEARLY;          2
+ScriptRepository;      @KEEP_YEARLY;          4
 -----------------------------------------------------------------------------------------
 CorporateDocs;         #CREATEARCHIVES;     
 CorporateDocs;         @INFO;                 Corporate Documentation
@@ -112,7 +113,7 @@ CorporateDocs;         @KEEP_TIMED;           20
 CorporateDocs;         @MAKE_MONTHLY;         TRUE
 CorporateDocs;         @KEEP_MONTHLY;         6
 CorporateDocs;         @MAKE_YEARLY;          TRUE
-CorporateDocs;         @KEEP_YEARLY;          2
+CorporateDocs;         @KEEP_YEARLY;          6
 -----------------------------------------------------------------------------------------
 VM-Config;             #CREATEARCHIVES;     
 VM-Config;             @INFO;                 VM Server Configuration
@@ -153,11 +154,11 @@ UrBackup;              @SKIPFILE;             *.LOG *.LOG_* *.LOG.* *.TMP *.EXE 
 UrBackup;              @SKIPDIR;              Zips ZipFiles Lang Data Windows_Components ImDisk FileIndex WWW 
 UrBackup;              @EXEMPTION;            "desktop.ini" "+Zips\+" "+ZipFiles\+" "+Lang\+" "+Data\+" "+Windows_Components\+" "+ImDisk\+" "+FileIndex\+" "+WWW\+" "+.EXE" "+.DLL" "+.BAT" "+.SH" "+.LOG" "+.LOG.+" "+.ICO" "+.PNG" "+.JPG"
 
+UrBackup;              @SKIPFILE0;            %@SKIPFILE% *.DB* *.DAT
+UrBackup;              @EXEMPTION0;           %@EXEMPTION% "+.DB+" "+.DAT"
 UrBackup;              @SOURCE0a;             %SystemDrive%\Progra~1\UrBackup
 UrBackup;              @SOURCE0b;             %SystemDrive%\Progra~2\UrBackup
 UrBackup;              @DEST0;                %@BACKUPS%\Configs
-UrBackup;              @SKIPFILE0;            %@SKIPFILE% *.DB* *.DAT
-UrBackup;              @EXEMPTION0;           %@EXEMPTION% "+.DB+" "+.DAT"
 
 UrBackup;              @SOURCE1a;             %@SOURCE0a%
 UrBackup;              @SOURCE1b;             %@SOURCE0b%
@@ -169,11 +170,11 @@ UrBackup;              @SOURCE2b;             %@SOURCE0b%
 UrBackup;              @DEST2a;               \\SERVER1\Backups$\UrBackup
 UrBackup;              @DEST2b;               \\SERVER2\Backups$\UrBackup
 
+UrBackup;              @SKIPFILE3;            %@SKIPFILE% *.DB* *.UB *.SQL *.DAT
+UrBackup;              @EXEMPTION3;           %@EXEMPTION% "+.DB+" "+.UB" "+.SQL" "+.DAT"
 UrBackup;              @SOURCE3a;             %SystemDrive%\Progra~1\UrBackupServer
 UrBackup;              @SOURCE3b;             %SystemDrive%\Progra~2\UrBackupServer
 UrBackup;              @DEST3;                %@DEST0%
-UrBackup;              @SKIPFILE3;            %@SKIPFILE% *.DB* *.UB *.SQL *.DAT
-UrBackup;              @EXEMPTION3;           %@EXEMPTION% "+.DB+" "+.UB" "+.SQL" "+.DAT"
 
 UrBackup;              @SOURCE4a;             %@SOURCE3a%
 UrBackup;              @SOURCE4b;             %@SOURCE3b%
@@ -199,7 +200,7 @@ UrBackup;              @KEEP_FILES;           1
 UrBackup;              @MAKE_TIMED;           TRUE
 UrBackup;              @KEEP_TIMED;           10
 UrBackup;              @MAKE_MONTHLY;         TRUE
-UrBackup;              @KEEP_MONTHLY;         3
+UrBackup;              @KEEP_MONTHLY;         6
 -----------------------------------------------------------------------------------------
 MRTG-Web;              #CREATEARCHIVES;     
 MRTG-Web;              @INFO;                 MRTG Web Configuration
@@ -249,7 +250,7 @@ NetworkBackup;         @KEEP_FILES;           1
 NetworkBackup;         @MAKE_TIMED;           TRUE
 NetworkBackup;         @KEEP_TIMED;           3
 NetworkBackup;         @MAKE_YEARLY;          TRUE
-NetworkBackup;         @KEEP_YEARLY;          2
+NetworkBackup;         @KEEP_YEARLY;          4
 -----------------------------------------------------------------------------------------
 WinThemes;             #CREATEARCHIVES;     
 WinThemes;             @INFO;                 Windows Desktop Themes
@@ -358,9 +359,37 @@ TestBackup;            @RCPT-TO;              %@TEST-RCPTS%
 #########################################################################################
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+AppZips;               #MOVEARCHIVES;
+AppZips;               @INFO;                 Application Backup Archives
+AppZips;               @EXTENSIONS;           ZIP 7z RAR GZ CAB
+AppZips;               @SKIPDIR;              SpecialFolder
+AppZips;               @SKIPFILE;             Generic.Input
+
+AppZips;               @SOURCE1a;             %SystemDrive%\Programs\ManageEngine\ADSelfService Plus\Zips
+AppZips;               @SOURCE1b;             D:\Programs\ManageEngine\ADSelfService Plus\Zips
+AppZips;               @DEST1a;               %@REMOTE_ARCHIVE1%
+AppZips;               @DEST1b;               %@REMOTE_ARCHIVE2%
+
+AppZips;               @SOURCE2a;             %SystemDrive%\Storage\Backups\UrBackup
+AppZips;               @SOURCE2b;             D:\Storage\Backups\UrBackup
+AppZips;               @DEST2a;               %@REMOTE_ARCHIVE1%
+AppZips;               @DEST2b;               %@REMOTE_ARCHIVE2%
+
+AppZips;               @SOURCE3a;             %SystemDrive%\Storage\Backups\Virtualization
+AppZips;               @SOURCE3b;             D:\Storage\Backups\Virtualization
+AppZips;               @DEST3a;               %@REMOTE_ARCHIVE1%
+AppZips;               @DEST3b;               %@REMOTE_ARCHIVE2%
+
+AppZips;               @JOBFREQ;              DAILY
+AppZips;               @JOBTIME;              05:15:00
+AppZips;               @JOBUSER;              %@SYS-SCHED-ACCT%
+AppZips;               @MOVE_AFTER;           30
+AppZips;               @PURGE_AFTER;          200
+AppZips;               @MAIL;                 TRUE
+-----------------------------------------------------------------------------------------
 LogZips;               #MOVEARCHIVES;     
 LogZips;               @INFO;                 Maintenance Logs Archives
-LogZips;               @EXTENSIONS;           ZIP 7z RAR
+LogZips;               @EXTENSIONS;           ZIP 7z RAR GZ CAB
 LogZips;               @SKIPDIR;              SpecialFolder
 
 LogZips;               @SOURCE1;              %WinDir%\System32\LogFiles
@@ -392,7 +421,7 @@ LogZips;               @MAIL;                 TRUE
 -----------------------------------------------------------------------------------------
 ScriptZips;            #MOVEARCHIVES;     
 ScriptZips;            @INFO;                 Maintenance Scripts Archives
-ScriptZips;            @EXTENSIONS;           ZIP 7z RAR
+ScriptZips;            @EXTENSIONS;           ZIP 7z RAR GZ CAB
 ScriptZips;            @SKIPDIR;              SpecialFolder
 ScriptZips;            @SKIPFILE;             Generic.Input
 
@@ -404,13 +433,10 @@ ScriptZips;            @SOURCE2;              D:\Scripts\Zips
 ScriptZips;            @DEST2a;               %@DEST1a%
 ScriptZips;            @DEST2b;               %@DEST1b%
 
-ScriptZips;            @SOURCE3;              %@STORAGE%\Source
+ScriptZips;            @SOURCE3a;             %@STORAGE%\Source
+ScriptZips;            @SOURCE3b;             %@STORAGE%\Scripts_Source
 ScriptZips;            @DEST3a;               %@DEST1a%
 ScriptZips;            @DEST3b;               %@DEST1b%
-
-ScriptZips;            @SOURCE4;              %@STORAGE%\Scripts_Source
-ScriptZips;            @DEST4a;               %@DEST1a%
-ScriptZips;            @DEST4b;               %@DEST1b%
 
 ScriptZips;            @JOBFREQ;              DAILY
 ScriptZips;            @JOBTIME;              03:15:00
@@ -470,10 +496,10 @@ TestZips;              @ALERT-TO;             %@TEST-RCPTS%
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 MultiTest;             #RETAINBACKUPS;     
 MultiTest;             @INFO;                 Backups Archival Testing #1
-MultiTest;             @USE_ROBOCOPY;         FALSE
 MultiTest;             @SKIPFILE;             *.DAT *.BAK *.TMP *.RAR *.7z
 MultiTest;             @SKIPDIR;              Old Obsolete
 MultiTest;             @EXEMPTION;            "\Old\" "\Obsolete\" ".DAT" ".RAR" ".7z" ".BAK" ".TMP"
+MultiTest;             @USE_ROBOCOPY;         FALSE
 MultiTest;             @JOBTIME;              04:00:00
 MultiTest;             @JOBDELAY;             30
 MultiTest;             @JOBUSER;              %@SYS-SCHED-ACCT%
